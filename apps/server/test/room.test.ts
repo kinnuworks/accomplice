@@ -251,9 +251,10 @@ describe('theory proposals and lobby narration', () => {
     const { room, tv } = await makeRoom(1);
     room.joinUrl = 'https://some-long-tunnel-name.example.dev/p?room=TEST';
     room.join('Nia');
+    await new Promise((r) => setTimeout(r, 30));
     await room.narrationIdle();
     const ann = tv.msgs.filter((m) => m.t === 'announce') as any[];
-    expect(ann.some((m) => /Welcome, Nia/.test(m.text))).toBe(true);
+    expect(ann.some((m) => /Welcome.*Nia/.test(m.text))).toBe(true);
     const join = ann.find((m) => m.speech)!;
     expect(join.text).toBe('Scan the code or enter room code TEST');
     expect(join.speech).toBe('Scan the code on the TV, or type the room code: T, E, S, T.');
@@ -400,5 +401,75 @@ describe('immersive features', () => {
     expect(room.boardClues().some((x) => x.text.startsWith('Slip:'))).toBe(true);
     expect(room.youState(a.id).objectionUsed).toBe(true);
     await expect(room.objection(a.id, u.id)).rejects.toThrow(/already/);
+  });
+});
+
+describe('pacing and playback', () => {
+  it('moves to the next round by itself once everyone is out of questions', async () => {
+    const { cfg } = await import('../src/config.js');
+    cfg.autoAdvanceMs = 30;
+    try {
+      const { room, tv } = await makeRoom(2);
+      await room.start('tv');
+      await room.next('tv');
+      const s = room.case!.suspects;
+      for (const p of room.players) for (let i = 0; i < 2; i++) await room.ask(p.id, s[i].id, 'Where were you at nine?', 'typed');
+      await new Promise((r) => setTimeout(r, 120));
+      expect(room.round).toBe(2);
+      expect(tv.msgs.some((m) => m.t === 'announce' && /The clock strikes/.test(m.text))).toBe(true);
+    } finally { cfg.autoAdvanceMs = 0; }
+  });
+
+  it('advances when the soft round timer runs out, and more time pushes it back', async () => {
+    const { cfg } = await import('../src/config.js');
+    const prev = cfg.roundSeconds; cfg.roundSeconds = 0.05;
+    const prevMore = cfg.moreTimeSeconds; cfg.moreTimeSeconds = 0.2;
+    try {
+      const { room } = await makeRoom(1);
+      await room.start('tv');
+      await room.next('tv');
+      room.moreTime();
+      await new Promise((r) => setTimeout(r, 120));
+      expect(room.round).toBe(1); // extended
+      await new Promise((r) => setTimeout(r, 250));
+      expect(room.round).toBeGreaterThanOrEqual(2);
+    } finally { cfg.roundSeconds = prev; cfg.moreTimeSeconds = prevMore; }
+  });
+
+  it('measures objection and hunch windows from when the TV actually plays the answer', async () => {
+    const { room, tv } = await makeRoom(2);
+    await room.start('tv');
+    await room.next('tv');
+    const [a, b] = room.players; b.questionsLeft = 0;
+    const u = await room.ask(a.id, room.case!.suspects[0].id, 'Where were you at nine?', 'typed');
+    room.playing(u.parts![0].id);
+    room.spoken(u.parts![u.parts!.length - 1].id);
+    const st = room.publicState();
+    expect(st.hunch?.closesAt).toBeGreaterThan(Date.now() + 15_000);
+    room.hunch(b.id, u.id, true);
+    expect(tv.last('hunch')?.lying).toBe(1);
+    await room.objection(a.id, u.id);
+  });
+});
+
+describe('heartbeat', () => {
+  it('drops a socket that stops answering pings, so the player shows as away', async () => {
+    const { Hub } = await import('../src/hub.js');
+    const hub = await new Hub().init();
+    const room = hub.createRoom();
+    const p = room.join('Quiet');
+    const handlers: Record<string, ((...a: any[]) => void)[]> = {};
+    let terminated = false;
+    const sock = {
+      readyState: 1, send() {}, close() {}, ping() {}, terminate() { terminated = true; (handlers.close ?? []).forEach((f) => f()); },
+      on(ev: string, fn: (...a: any[]) => void) { (handlers[ev] ??= []).push(fn); },
+    };
+    hub.connect(sock, { role: 'phone', room: room.code, pid: p.id });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(room.player(p.id)!.connected).toBe(true);
+    await new Promise((r) => setTimeout(r, 120));
+    expect(terminated).toBe(true);
+    expect(room.player(p.id)!.connected).toBe(false);
+    hub.close();
   });
 });

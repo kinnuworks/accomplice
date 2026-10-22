@@ -152,6 +152,19 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Buil
     log.warn('MCP mount failed', (e as Error).message);
   }
 
+  // ---- House host: a Strands agent that plays through /mcp (optional package, needs ANTHROPIC_API_KEY) ----
+  if (mcpStatus === 'mounted' && process.env.ANTHROPIC_API_KEY) {
+    try {
+      const local = path.join(REPO_ROOT, 'packages/host-agent/src/index.ts');
+      const h: any = existsSync(local) ? await import(/* @vite-ignore */ 'file://' + local) : null;
+      if (h?.createHostHandler) {
+        const host = h.createHostHandler(); // calls this server's own /mcp on loopback
+        app.post('/api/host', async (req, reply) => { reply.hijack(); await host(req.raw, reply.raw, req.body); });
+        app.addHook('onClose', async () => { await host.close(); });
+      }
+    } catch (e) { log.warn('House host not mounted', (e as Error).message); }
+  }
+
   await initAws(app, hub); // no-op unless ACCOMPLICE_TABLE, AUDIO_BUCKET or EMF_METRICS is set
   app.addHook('onClose', async () => hub.close());
   return { app, hub, api, mcp: mcpStatus };

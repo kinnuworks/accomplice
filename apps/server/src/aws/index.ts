@@ -2,6 +2,7 @@
 //   ACCOMPLICE_TABLE  DynamoDB room snapshots, fair play audit rows, results, all-time counters (store.ts)
 //   AUDIO_BUCKET      S3 copy of the voice cache, restored on start, served by CloudFront (audio-sync.ts)
 //   EMF_METRICS=on    CloudWatch metrics from structured log lines (metrics.ts)
+//   PUBLIC_URL_PARAM  SSM parameter that receives the public URL on start (the tunnel URL changes per start)
 // With none set (local play) this module does nothing.
 import type { FastifyInstance } from 'fastify';
 import type { Hub } from '../hub.js';
@@ -12,7 +13,7 @@ import { emit, emfEnabled } from './metrics.js';
 import { storeEnabled, putSnapshot, putAudit, putResult, addStats, getStats } from './store.js';
 import { startAudioSync, stopAudioSync } from './audio-sync.js';
 
-export const awsEnabled = () => storeEnabled() || emfEnabled() || !!process.env.AUDIO_BUCKET;
+export const awsEnabled = () => storeEnabled() || emfEnabled() || !!process.env.AUDIO_BUCKET || !!process.env.PUBLIC_URL_PARAM;
 
 /** Called for every fair play audit entry (one per suspect reply). Never throws, never awaited by the game. */
 export function onAudit(e: AuditEntry) {
@@ -40,6 +41,7 @@ export async function initAws(app: FastifyInstance, hub: Hub) {
   if (!awsEnabled()) return;
   log.info(`aws: table=${storeEnabled() ? 'on' : 'off'} audioBucket=${process.env.AUDIO_BUCKET ? 'on' : 'off'} emf=${emfEnabled() ? 'on' : 'off'}`);
 
+  void publishUrl();
   await startAudioSync(cfg.audioDir).catch((e) => log.warn(`audio sync off: ${(e as Error).message}`));
 
   // Real numbers for the stats page, summed across every game played on this deployment.
@@ -89,9 +91,10 @@ export async function initAws(app: FastifyInstance, hub: Hub) {
 
       // Snapshot the public state whenever it changed, so a game can be inspected or restored after a restart.
       if (storeEnabled()) {
-        const state = room.publicState();
-        const json = JSON.stringify(state);
-        if (lastSnap.get(code) !== json) { lastSnap.set(code, json); void putSnapshot(code, room.phase, room.players.length, state); }
+        // Full snapshot (public state plus what Room.restore needs); compare without the timestamp.
+        const snap = room.snapshot();
+        const json = JSON.stringify({ ...snap, restore: { ...snap.restore, savedAt: 0 } });
+        if (lastSnap.get(code) !== json) { lastSnap.set(code, json); void putSnapshot(code, room.phase, room.players.length, snap); }
       }
     }
     for (const code of [...lastPhase.keys()]) if (!hub.rooms.has(code)) { lastPhase.delete(code); lastSnap.delete(code); startedAt.delete(code); }
@@ -102,4 +105,19 @@ export async function initAws(app: FastifyInstance, hub: Hub) {
   const timer = setInterval(() => { void tick().catch((e) => log.warn(`aws tick: ${(e as Error).message}`)); }, every);
   timer.unref?.();
   app.addHook('onClose', async () => { clearInterval(timer); stopAudioSync(); await tick().catch(() => {}); });
+}
+
+/** Log the public URL and store it in SSM so scripts and teammates can find the current address. */
+async function publishUrl() {
+  const name = process.env.PUBLIC_URL_PARAM;
+  const url = cfg.publicUrl;
+  if (!url) return;
+  log.info(`public url: ${url}`);
+  if (!name) return;
+  try {
+    const m = await import('@aws-sdk/client-ssm');
+    const c = new m.SSMClient({ region: process.env.AWS_REGION });
+    await c.send(new m.PutParameterCommand({ Name: name, Value: url, Type: 'String', Overwrite: true }));
+    log.info(`public url stored in SSM ${name}`);
+  } catch (e) { log.warn(`ssm put ${name} failed: ${(e as Error)?.name ?? e}`); }
 }

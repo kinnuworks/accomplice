@@ -14,7 +14,7 @@ import { translate, cachedTranslation } from './translate.js';
 import { correctNames } from './fuzzy.js';
 import { log } from './log.js';
 import { houseFor, houseReply, type House } from './house.js';
-import { buildNewspaper } from './newspaper.js';
+import { buildNewspaper, creditDetective } from './newspaper.js';
 import type { Claim, Fact, ObjectionResult } from '@accomplice/protocol';
 
 export class GameError extends Error {}
@@ -96,10 +96,20 @@ export class Room {
   private hunches = new Map<string, { lied: boolean; votes: Map<string, boolean>; closesAt: number }>();
   private openHunch: string | null = null;
   private narrationEndsAt = 0;
-  private answerWindows = new Map<string, { suspectId: string; claims: Claim[]; endsAt: number }>();
+  private answerWindows = new Map<string, { suspectId: string; claims: Claim[]; endsAt: number; durationMs: number }>();
+  private partOwner = new Map<string, string>();
+  /** When each player first named the real culprit (proposal or vote): breaks ties for the headline. */
+  private firstNamed = new Map<string, number>();
+  private autoTimer: NodeJS.Timeout | null = null;
+  private lastJoinPrompt = 0;
+  private pendingWelcome: string[] = [];
+  private welcomeTimer: NodeJS.Timeout | null = null;
   private objectionUsed = new Set<string>();
   private slipCount = 0;
   private finalPart = new Map<string, string>();
+
+  /** Called (debounced by the hub) after any change, so the room can be snapshotted for crash recovery. */
+  onChange: (() => void) | null = null;
 
   private warm: { tone: Tone; seed: number; p: Promise<Awaited<ReturnType<Engine['generateVerifiedCase']>>> } | null = null;
 
@@ -145,8 +155,21 @@ export class Room {
 
   /** Spoken in the lobby when the room opens and whenever someone joins, so nobody needs to read the screen. */
   welcome(name?: string) {
-    if (name) void this.announce(`Welcome, ${name}.`, { tier: 'fast' });
-    void this.announce(this.joinLine(), { speech: this.joinSpeech() });
+    // Batch arrivals into one line and keep the join prompt to one every 30 s, so the narrator never
+    // builds a backlog that spills into the game.
+    if (name) this.pendingWelcome.push(name);
+    if (this.welcomeTimer) return;
+    this.welcomeTimer = setTimeout(() => {
+      this.welcomeTimer = null;
+      if (this.phase !== 'lobby') { this.pendingWelcome = []; return; }
+      const names = this.pendingWelcome.splice(0);
+      if (names.length) void this.announce(`Welcome, ${names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`}.`, { tier: 'fast', lobbyOnly: true });
+      if (Date.now() - this.lastJoinPrompt > 30_000) {
+        this.lastJoinPrompt = Date.now();
+        void this.announce(this.joinLine(), { speech: this.joinSpeech(), lobbyOnly: true });
+      }
+    }, name ? WELCOME_BATCH_MS : 0);
+    this.welcomeTimer.unref?.();
   }
 
   private introText(c: Case) {
@@ -156,7 +179,8 @@ export class Room {
   private roundText(c: Case, r: 1 | 2 | 3) {
     // Round three's board clue arrives with the blackout instead.
     const board = c.clues.filter((x) => x.visibility === 'board' && x.round === r).slice(r === 3 ? 1 : 0);
-    const lines = [`Round ${NUM[r]}. Everyone has ${NUM[cfg.questionsPerRound]} questions.`];
+    const hour = c.clockChimes?.[r - 1] ?? ((7 + r) % 12) + 1;
+    const lines = [`The clock strikes ${HOUR_WORDS[hour] ?? hour}. Round ${NUM[r]}.`, `Everyone has ${NUM[cfg.questionsPerRound]} questions.`];
     if (board.length) {
       lines.push(board.length === 1 ? 'A new clue on the board.' : `${capital(NUM[board.length])} new clues on the board.`);
       for (const b of board) lines.push(`${b.title}. ${b.text}`);
@@ -296,7 +320,13 @@ export class Room {
         if (this.phase !== 'briefing' || this.case !== c) return;
         this.sfx('sting');
         this.broadcast({ t: 'event', kind: 'titleCard', text: c.title });
-        void this.announce(ROLE_LINE);
+        void this.announce(ROLE_LINE).then(() => this.afterAudio()).then(() => {
+          // Nobody pressed on after the cold open: carry on by ourselves.
+          if (cfg.autoAdvanceMs > 0 && this.phase === 'briefing' && this.case === c) {
+            const t = setTimeout(() => { if (this.phase === 'briefing' && this.case === c) void this.next('api').catch(() => {}); }, BRIEFING_GRACE_MS);
+            t.unref?.();
+          }
+        });
       });
       await sent;
     } finally {
@@ -365,6 +395,8 @@ export class Room {
     if (this.phaseTimer) { clearTimeout(this.phaseTimer); this.phaseTimer = null; }
     this.phase = 'investigate'; this.round = r;
     this.smudged.clear();
+    this.cancelAutoAdvance();
+    this.armRoundTimer();
     for (const p of this.players) p.questionsLeft = cfg.questionsPerRound;
     this.deadlineAt = cfg.roundSeconds > 0 ? Date.now() + cfg.roundSeconds * 1000 : undefined;
     const board = c.clues.filter((x) => x.visibility === 'board' && x.round === r);
@@ -418,7 +450,7 @@ export class Room {
     const tied = top > 0 ? Object.keys(e.votes).filter((k) => e.votes[k] === top) : c.suspects.map((s) => s.id);
     const chosen = tied[Math.floor(Math.random() * tied.length)];
     e.stage = 'ask'; e.suspectId = chosen; e.closesAt = Date.now() + EMERGENCY_MS;
-    e.timer = setTimeout(() => { if (this.emergency === e && e.stage === 'ask') { e.stage = 'done'; this.changed(); } }, EMERGENCY_MS);
+    e.timer = setTimeout(() => { if (this.emergency === e && e.stage === 'ask') { e.stage = 'done'; this.changed(); this.maybeAutoAdvance(); } }, EMERGENCY_MS);
     e.timer.unref?.();
     const name = c.suspects.find((s) => s.id === chosen)!.name;
     const text = `${name} must answer one question in front of everyone. First to hold the talk button gets it, and it is free.`;
@@ -532,7 +564,9 @@ export class Room {
   private openHunchFor(u: Utterance, claims: { s: string; room: string; slot: number }[]) {
     const c = this.case!;
     const lied = claims.some((cl) => cl.s === u.speaker && c.truth.position[cl.s]?.[cl.slot] !== undefined && c.truth.position[cl.s][cl.slot] !== cl.room);
-    this.hunches.set(u.id, { lied, votes: new Map(), closesAt: Date.now() + HUNCH_MS });
+    // Until the TV reports playback, assume the answer plays now: the window runs 20 s past its end.
+    const w = this.answerWindows.get(u.id);
+    this.hunches.set(u.id, { lied, votes: new Map(), closesAt: Math.max(Date.now(), w?.endsAt ?? 0) + HUNCH_MS });
     this.openHunch = u.id;
   }
 
@@ -565,8 +599,11 @@ export class Room {
 
   private async beginAccuse() {
     this.phase = 'accuse';
+    this.cancelAutoAdvance();
+    if (this.phaseTimer) { clearTimeout(this.phaseTimer); this.phaseTimer = null; }
     this.smudged.clear();
     if (this.emergency) { if (this.emergency.timer) clearTimeout(this.emergency.timer); this.emergency.stage = 'done'; }
+    this.cancelAutoAdvance();
     // Unanswered questions are dropped; the one being answered finishes.
     const pending = this.processing ? this.queue.slice(1) : this.queue;
     for (const q of pending) q.reject?.(new GameError('Questioning has closed.'));
@@ -578,17 +615,54 @@ export class Room {
     // Voice the culprit's confession now, so the reveal can play it without a pause.
     const culprit = this.case!.suspects.find((s) => s.id === this.case!.truth.culprit)!;
     for (const line of this.case!.confession ?? []) void speak(line, culprit.voiceId, 'fast').catch(() => {});
+    this.armRoundTimer();
     await this.announce(this.accuseText(!!this.accompliceId));
   }
 
-  /** Anyone can ask for more time. The timer is a nudge, never a hard stop. */
+  /** Anyone can ask for more time: it pushes the soft round timer back. */
   moreTime() {
     if (this.phase !== 'investigate' && this.phase !== 'accuse') throw new GameError('There is no clock running right now.');
     const base = Math.max(Date.now(), this.deadlineAt ?? Date.now());
     this.deadlineAt = base + cfg.moreTimeSeconds * 1000;
+    this.cancelAutoAdvance();
+    this.armRoundTimer(this.deadlineAt);
     this.sfx('tick');
     this.changed();
   }
+
+  /** Soft timer for a round or the vote: when it runs out (and nobody is mid-answer) the game moves on. */
+  private armRoundTimer(at?: number) {
+    if (cfg.roundSeconds <= 0) return;
+    const due = at ?? this.deadlineAt ?? Date.now() + cfg.roundSeconds * 1000;
+    const phase = this.phase; const round = this.round;
+    this.setPhaseTimer(Math.max(0, due - Date.now()), async () => {
+      if (this.phase !== phase || this.round !== round) return;
+      await this.queueIdle();
+      if (this.phase === phase && this.round === round) await this.next('api');
+    });
+  }
+
+  /**
+   * Everyone is out of questions and nobody is talking: give the room a few seconds to react, then move on.
+   * tv:next still works at any time.
+   */
+  private maybeAutoAdvance() {
+    if (cfg.autoAdvanceMs <= 0 || this.phase !== 'investigate' || this.autoTimer) return;
+    const active = this.players.filter((p) => p.connected);
+    if (!active.length || active.some((p) => p.questionsLeft > 0)) return;
+    if (this.queue.length || this.processing) return;
+    if (this.emergency && (this.emergency.stage === 'vote' || this.emergency.stage === 'ask')) return;
+    const round = this.round;
+    this.autoTimer = setTimeout(() => {
+      this.autoTimer = null;
+      if (this.phase !== 'investigate' || this.round !== round || this.queue.length) return;
+      if (this.players.some((p) => p.connected && p.questionsLeft > 0)) return;
+      void this.next('api').catch(() => {});
+    }, cfg.autoAdvanceMs);
+    this.autoTimer.unref?.();
+  }
+
+  private cancelAutoAdvance() { if (this.autoTimer) { clearTimeout(this.autoTimer); this.autoTimer = null; } }
 
   vote(pid: string, v: { culprit: string; item?: string; accomplice?: string }) {
     if (this.phase !== 'accuse') throw new GameError('Voting opens after the third round.');
@@ -599,6 +673,7 @@ export class Room {
     const pv = this.priv.get(pid);
     if (!pv) throw new GameError('Join the room first.');
     pv.vote = { culprit: v.culprit, item: v.item, accomplice: v.accomplice };
+    if (v.culprit === c.truth.culprit && !this.firstNamed.has(pid)) this.firstNamed.set(pid, Date.now());
     this.sfx('pin');
     this.changed();
     const { count, needed } = this.voteCount();
@@ -633,6 +708,7 @@ export class Room {
     const c = this.case!;
     this.phase = 'reveal';
     this.deadlineAt = undefined;
+    if (this.phaseTimer) { clearTimeout(this.phaseTimer); this.phaseTimer = null; }
     const steps = this.engine.proofChain(c);
     const scores = this.scores();
     const detectives = this.players.filter((p) => p.id !== this.accompliceId);
@@ -642,8 +718,8 @@ export class Room {
       ? this.lastAsked.get(this.accompliceId) ?? this.engine.safeLiesForAccomplice(c)[0]?.text
       : undefined;
     const players = this.players.map((p) => ({ id: p.id, name: p.name, score: scores[p.id] ?? 0, role: this.priv.get(p.id)?.role ?? null, correct: this.priv.get(p.id)?.vote?.culprit === c.truth.culprit }));
-    const best = [...players].filter((p) => p.id !== this.accompliceId && p.correct).sort((a, b) => b.score - a.score)[0];
-    const newspaper = { ...buildNewspaper(c, { players, detective: best?.name }), imageUrl: `/api/rooms/${this.code}/front-page.png` };
+    const credit = creditDetective(players, this.accompliceId, this.firstNamed);
+    const newspaper = { ...buildNewspaper(c, { players, ...credit }), imageUrl: `/api/rooms/${this.code}/front-page.png` };
     this.reveal = { culprit: c.truth.culprit, accomplice: this.accompliceId, item: c.crime.item, steps, scores, accompliceCaught, accompliceLine, sabotage: [...this.sabotageLog], hunches: this.hunchResults(), newspaper };
     this.sfx('gavel');
     this.changed();
@@ -690,7 +766,8 @@ export class Room {
     if (this.proposal) { clearTimeout(this.proposal.timer); this.proposal = null; }
     if (this.phaseTimer) { clearTimeout(this.phaseTimer); this.phaseTimer = null; }
     if (this.emergency?.timer) clearTimeout(this.emergency.timer);
-    this.answerWindows.clear(); this.objectionUsed.clear(); this.slipCount = 0;
+    this.firstNamed.clear();
+    this.answerWindows.clear(); this.objectionUsed.clear(); this.slipCount = 0; this.partOwner.clear(); this.cancelAutoAdvance();
     this.emergency = null; this.house = null; this.sabotageLog = []; this.smudged.clear(); this.hunches.clear(); this.openHunch = null; this.tutorialAsked.clear();
     this.lastAsked.clear();
     this.phase = 'lobby'; this.round = 0; this.case = null; this.pub = null; this.reveal = undefined;
@@ -742,6 +819,7 @@ export class Room {
     timer.unref?.();
     this.proposal = { id, by: pid, culprit: theory.culprit, item: theory.item, agree: new Set([pid]), notYet: new Set(), closesAt, timer, settled: false };
     this.heartbeatIfCulprit(theory.culprit);
+    if (theory.culprit === c.truth.culprit && !this.firstNamed.has(pid)) this.firstNamed.set(pid, Date.now());
     this.broadcast({ t: 'proposal', id, by: pid, byName: p.name, culprit: theory.culprit, item: theory.item, votes: { agree: [pid], notYet: [] }, needed: this.proposalNeeded(), closesAt });
     this.sfx('pin');
     const sus = c.suspects.find((s) => s.id === theory.culprit)!.name;
@@ -868,6 +946,7 @@ export class Room {
     } finally {
       this.processing = false;
     }
+    this.maybeAutoAdvance();
   }
 
   /** Plays one answer: a thinking filler if nothing is ready, then each checked sentence the moment it is voiced. */
@@ -906,7 +985,8 @@ export class Room {
         u.partial = !(live.done && i === live.parts.length - 1);
         this.sendUtterance({ ...u, parts: [...u.parts!] });
         speechEnd = Math.max(Date.now(), speechEnd) + sp.durationMs;
-        if (suspect.id !== 'house') this.answerWindows.set(u.id, { suspectId: suspect.id, claims: [], endsAt: speechEnd });
+        this.partOwner.set(part.id, u.id); this.partOwner.set(u.id, u.id);
+        if (suspect.id !== 'house') this.answerWindows.set(u.id, { suspectId: suspect.id, claims: [], endsAt: speechEnd, durationMs: u.parts!.reduce((n, x) => n + (x.durationMs ?? 0), 0) });
         i++;
         continue;
       }
@@ -930,7 +1010,8 @@ export class Room {
     this.finalPart.set(`${u.id}:${u.parts!.length - 1}`, u.id);
     if (suspect.id !== 'house' && this.phase === 'investigate') {
       this.openHunchFor(u, live.result?.claims ?? []);
-      this.answerWindows.set(u.id, { suspectId: suspect.id, claims: live.result?.claims ?? [], endsAt: speechEnd });
+      const prev = this.answerWindows.get(u.id);
+      this.answerWindows.set(u.id, { suspectId: suspect.id, claims: live.result?.claims ?? [], endsAt: prev?.endsAt ?? speechEnd, durationMs: u.parts!.reduce((n, x) => n + (x.durationMs ?? 0), 0) });
       if (this.answerWindows.size > 100) this.answerWindows.delete(this.answerWindows.keys().next().value!);
     }
     const r = live.result;
@@ -1022,12 +1103,32 @@ export class Room {
   spoken(id: string) {
     const uid = this.finalPart.get(id) ?? id;
     this.spokenWaiters.get(uid)?.();
+    // The room has now heard the whole answer: objections get 6 s from here, hunches 20 s.
+    const owner = this.partOwner.get(id) ?? id;
+    const isLast = this.finalPart.has(id) || owner === id;
+    if (isLast) this.heard(owner, Date.now());
+  }
+
+  /** The TV started playing an utterance (or one of its parts). Windows are measured from real playback. */
+  playing(id: string) {
+    const owner = this.partOwner.get(id) ?? id;
+    const w = this.answerWindows.get(owner);
+    if (!w) return;
+    const partIdx = id === owner ? 0 : Number(id.slice(owner.length + 1)) || 0;
+    if (partIdx === 0) this.heard(owner, Date.now() + w.durationMs);
+  }
+
+  private heard(uid: string, endsAt: number) {
+    const w = this.answerWindows.get(uid);
+    if (w) w.endsAt = endsAt;
+    const h = this.hunches.get(uid);
+    if (h) { h.closesAt = endsAt + HUNCH_MS; this.changed(); }
   }
 
   // ---------- narration and messaging ----------
 
   /** Narrator line for everyone (or one phone). Voices are made in parallel but lines go out in call order. */
-  announce(text: string, opts: { only?: Client; tier?: VoiceTier; id?: string; speech?: string } = {}): Promise<void> {
+  announce(text: string, opts: { only?: Client; tier?: VoiceTier; id?: string; speech?: string; lobbyOnly?: boolean } = {}): Promise<void> {
     // Long narration is split into pieces of at most two sentences; each piece is its own caption and audio.
     const pieces = opts.speech ? [text] : twoSentenceChunks(text);
     let last: Promise<void> = Promise.resolve();
@@ -1038,13 +1139,14 @@ export class Room {
     return last;
   }
 
-  private announceOne(text: string, opts: { only?: Client; tier?: VoiceTier; id?: string; speech?: string }): Promise<void> {
+  private announceOne(text: string, opts: { only?: Client; tier?: VoiceTier; id?: string; speech?: string; lobbyOnly?: boolean }): Promise<void> {
     const t0 = Date.now();
     const caption = cleanCaption(text);
     const said = opts.speech ?? caption;
     const speech = narrate(said, opts.tier ?? 'narrator');
     const turn = this.narration.then(async () => {
       const sp = await speech;
+      if (opts.lobbyOnly && this.phase !== 'lobby') return; // stale lobby chatter: drop it
       this.timing('narration', Date.now() - t0, { cached: sp.cached, chars: said.length });
       const id = opts.id ?? nanoid(8);
       // Word marks only line up with the caption when the caption is exactly what was said.
@@ -1128,10 +1230,83 @@ export class Room {
 
   roomName(id: string) { return this.case?.rooms.find((r) => r.id === id)?.name ?? id; }
 
+  // ---------- crash recovery ----------
+
+  /**
+   * Everything needed to rebuild this room after a restart. The case itself is not stored: it is regenerated
+   * from its seed, which the engine guarantees is deterministic. Public state is kept alongside for inspection.
+   */
+  snapshot(): RoomState & { restore: RoomRestore } {
+    const c = this.case;
+    return {
+      ...this.publicState(),
+      restore: {
+        v: 1, savedAt: Date.now(),
+        case: c ? { seed: c.seed, tone: c.tone, difficulty: c.difficulty, id: c.id, slips: c.clues.filter((x) => x.id.startsWith('slip-')) } : null,
+        players: this.players.map((p) => ({ ...p })),
+        priv: Object.fromEntries([...this.priv].map(([k, v]) => [k, { ...v, clueIds: [...v.clueIds] }])),
+        accompliceId: this.accompliceId,
+        board: { ...this.board, revealed: [...this.board.revealed], pinned: [...this.board.pinned], links: this.board.links.map(([a, b]) => [a, b] as [string, string]) },
+        smudged: [...this.smudged], sabotageLog: [...this.sabotageLog], objectionUsed: [...this.objectionUsed], slipCount: this.slipCount,
+        tutorialAsked: [...this.tutorialAsked], lastAsked: Object.fromEntries(this.lastAsked),
+        hunches: [...this.hunches].map(([id, h]) => ({ id, lied: h.lied, closesAt: h.closesAt, votes: [...h.votes] })),
+        history: Object.fromEntries(this.history),
+        emergency: this.emergency ? (({ timer: _t, ballots, ...rest }) => ({ ...rest, ballots: [...ballots] }))(this.emergency) : null,
+        audience: this.audience.map((a) => ({ ...a })),
+        reveal: this.reveal ?? null,
+      },
+    };
+  }
+
+  /** Rebuild a room from snapshot() output. Returns null if the snapshot is unusable (old format, case mismatch). */
+  static async restore(code: string, engine: Engine, snap: unknown): Promise<Room | null> {
+    const s = snap as (RoomState & { restore?: RoomRestore }) | null;
+    const r = s?.restore;
+    if (!s || !r || r.v !== 1) return null;
+    const room = new Room(code, engine, s.tone);
+    if (r.case) {
+      const { c } = await engine.generateVerifiedCase({ seed: r.case.seed, tone: r.case.tone, difficulty: r.case.difficulty, suspectCount: 5 }, 1);
+      if (c.id !== r.case.id) { log.warn(`room ${code}: case ${r.case.id} regenerated as ${c.id}; not restoring`); return null; }
+      c.clues.push(...r.case.slips);
+      room.case = c;
+      room.pub = engine.publicView(c);
+      room.house = s.house ? houseFor(room.pub) : null;
+    }
+    room.phase = s.phase; room.round = s.round; room.hostId = s.hostId; room.deadlineAt = s.deadlineAt;
+    room.players = r.players.map((p) => ({ ...p, connected: false }));
+    for (const [k, v] of Object.entries(r.priv)) room.priv.set(k, v);
+    room.accompliceId = r.accompliceId;
+    room.board = r.board;
+    room.transcript = s.transcript ?? [];
+    room.smudged = new Set(r.smudged); room.sabotageLog = r.sabotageLog; room.objectionUsed = new Set(r.objectionUsed); room.slipCount = r.slipCount;
+    room.tutorialAsked = new Set(r.tutorialAsked); room.lastAsked = new Map(Object.entries(r.lastAsked));
+    for (const h of r.hunches) room.hunches.set(h.id, { lied: h.lied, closesAt: h.closesAt, votes: new Map(h.votes) });
+    room.history = new Map(Object.entries(r.history));
+    room.audience = r.audience.map((a) => ({ ...a, connected: false }));
+    room.reveal = r.reveal ?? undefined;
+    if (r.emergency) {
+      const e = { ...r.emergency, ballots: new Map(r.emergency.ballots) } as NonNullable<Room['emergency']>;
+      room.emergency = e;
+      // Timers do not survive a restart: give whatever stage was open a fresh window.
+      if (e.stage === 'vote' || e.stage === 'ask') {
+        e.closesAt = Date.now() + EMERGENCY_MS;
+        e.timer = setTimeout(() => (e.stage === 'vote' ? room.closeEmergencyVoteNow() : (e.stage = 'done')), EMERGENCY_MS);
+        e.timer.unref?.();
+      }
+    }
+    if (room.phase === 'tutorial') room.setPhaseTimer(TUTORIAL_MS, async () => { if (room.phase === 'tutorial') await room.beginRound(1); });
+    if (room.phase === 'lobby') room.opts.prewarm = true;
+    log.info(`room ${code} restored at ${room.phase}${room.round ? ` round ${room.round}` : ''} with ${room.players.length} players`);
+    return room;
+  }
+
+  closeEmergencyVoteNow() { this.closeEmergencyVote(); }
+
   // ---------- state ----------
 
   changed() {
     this.lastActive = Date.now();
+    this.onChange?.();
     if (this.flushScheduled) return;
     this.flushScheduled = true;
     queueMicrotask(() => { this.flushScheduled = false; this.flush(); });
@@ -1220,8 +1395,29 @@ function stripClue(c: Clue): Clue {
   return rest;
 }
 
+export interface RoomRestore {
+  v: 1; savedAt: number;
+  case: { seed: number; tone: Tone; difficulty: 1 | 2 | 3; id: string; slips: Clue[] } | null;
+  players: Player[];
+  priv: Record<string, PlayerPriv>;
+  accompliceId: string | null;
+  board: BoardState;
+  smudged: string[];
+  sabotageLog: NonNullable<NonNullable<RoomState['reveal']>['sabotage']>;
+  objectionUsed: string[]; slipCount: number;
+  tutorialAsked: string[]; lastAsked: Record<string, string>;
+  hunches: { id: string; lied: boolean; closesAt: number; votes: [string, boolean][] }[];
+  history: Record<string, HistoryTurn[]>;
+  emergency: (NonNullable<RoomState['emergency']> & { ballots: [string, string][] }) | null;
+  audience: { id: string; name: string; connected: boolean }[];
+  reveal: RoomState['reveal'] | null;
+}
+
+const HOUR_WORDS = ['twelve', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
 const TUTORIAL_MS = 60_000;
 const OBJECTION_GRACE_MS = 6_000;
+const BRIEFING_GRACE_MS = 12_000;
+const WELCOME_BATCH_MS = Number(process.env.WELCOME_BATCH_MS ?? 2500);
 
 /** Used until the engine provides objectionSlip(): reveals only what the lie hides, gently for the guilty. */
 function fallbackSlip(c: Case, suspectId: string, claims: Claim[]): ObjectionResult {

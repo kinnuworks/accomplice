@@ -3,6 +3,17 @@
 # Keys are not baked in: ANTHROPIC_API_KEY / ELEVENLABS_API_KEY arrive as env vars from Secrets Manager.
 
 ARG NODE_IMAGE=node:24-bookworm-slim
+ARG TARGETARCH
+
+# ---- cloudflared (pinned release, checksum verified) for the optional HTTPS quick tunnel ----
+# Checksums from https://github.com/cloudflare/cloudflared/releases/tag/2026.9.3
+FROM scratch AS cloudflared-arm64
+ADD --checksum=sha256:aaeb2d7d0da3614634c7e03ab13487a1522c2e79165ed2929cfe23d5e95b326d \
+    https://github.com/cloudflare/cloudflared/releases/download/2026.9.3/cloudflared-linux-arm64 /cloudflared
+FROM scratch AS cloudflared-amd64
+ADD --checksum=sha256:77e26d8d900e0b8469f416239d14b5f296525fdf79fee6f511ef55609e3fbac2 \
+    https://github.com/cloudflare/cloudflared/releases/download/2026.9.3/cloudflared-linux-amd64 /cloudflared
+FROM cloudflared-${TARGETARCH} AS cloudflared
 
 # ---- build: install the workspace and build the web apps ----
 FROM ${NODE_IMAGE} AS build
@@ -37,8 +48,12 @@ COPY --from=build /app/apps/server ./apps/server
 COPY --from=build /app/apps/tv-web/dist ./apps/tv-web/dist
 COPY --from=build /app/apps/phone/dist ./apps/phone/dist
 COPY --from=build /app/apps/echo-sim/dist ./apps/echo-sim/dist
-RUN mkdir -p /data/cache && chown -R node:node /data
+COPY --from=cloudflared --chmod=755 /cloudflared /usr/local/bin/cloudflared
+# CA certificates for cloudflared (Node carries its own); bash for the entrypoint is already in the image.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /data/cache && chown -R node:node /data
 USER node
 WORKDIR /app/apps/server
 EXPOSE 8787
-CMD ["node", "--import", "tsx", "src/main.ts"]
+# TUNNEL=cloudflare adds an HTTPS quick tunnel; otherwise this just starts the server.
+CMD ["./docker-entrypoint.sh"]

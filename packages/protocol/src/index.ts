@@ -229,6 +229,7 @@ export type ClientToServer =
   | { t: 'phone:hunch'; utteranceId: string; lying: boolean }
   | { t: 'phone:objection'; utteranceId: string }   // once per game, during or up to 6 s after that answer                         // push the soft timer back (never a hard limit)
   | { t: 'phone:setLang'; lang: Lang }
+  | { t: 'tv:playing'; id: string }                 // TV actually started playing an utterance or part (windows start here)
   | { t: 'tv:spoken'; id: string }                 // TV finished playing an utterance (frees the queue early)
   | { t: 'ping' };
 

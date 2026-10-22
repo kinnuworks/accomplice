@@ -63,6 +63,7 @@ export function buildSystemPrompt(slice: SuspectSlice): string {
     '',
     'Rules:',
     '- Reply in 1 or 2 short sentences, under 35 words. Make the first sentence short. Spoken style. No stage directions, asterisks, emoji, lists or dashes.',
+    '- Always speak as yourself in the first person (I, me, my). Never say your own name, and never describe yourself as he, she or they.',
     '- Stay in your period and setting. You have never heard of anything modern, and you do not understand questions about machines or games; react in character.',
     '- Be witty and full of personality, and actually answer when you can. Use your own facts below; you may mention the time and room plainly.',
     '- Only state facts from WHAT YOU KNOW or YOUR STORY. If you do not know, say so in character. Never invent where anyone else was.',
@@ -80,6 +81,33 @@ export function buildSystemPrompt(slice: SuspectSlice): string {
     'OTHER GUESTS:',
     list(slice.otherSuspects.map((o) => `${o.name}, ${o.role}`)),
   ].join('\n');
+}
+
+const TITLES = /^(mr|mrs|ms|miss|dr|doctor|lady|lord|sir|colonel|auntie|uncle|cousin|the|great|old|madame|monsieur)\.?$/i;
+
+/** Words a suspect might use for themselves: full name, given name, surname (titles alone are too common). */
+function selfNames(name: string): string[] {
+  const parts = name.replace(/\./g, '').split(/\s+/).filter((p) => p.length > 2 && !TITLES.test(p));
+  return Array.from(new Set([name.replace(/\./g, '\\.?'), ...parts])).sort((a, b) => b.length - a.length);
+}
+
+/**
+ * Suspects sometimes narrate themselves ("Hugo was in the Store Room"). Rewrite the common shapes into the
+ * first person; anything left that still names the speaker is reported so the sentence can be retried or dropped.
+ */
+export function fixSelfReference(sentence: string, name: string): { text: string; ok: boolean } {
+  const alts = selfNames(name).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, (m) => (m === '\\' ? m : '\\' + m))).join('|');
+  const who = `(?:(?:Mr|Mrs|Ms|Miss|Dr|Lady|Lord|Colonel)\\.?\\s+)?(?:${alts})(?:\\s+(?:${alts}))?`;
+  const verbs: Record<string, string> = { was: 'was', is: 'am', has: 'have', "'s": "'m", had: 'had', did: 'did', does: 'do', saw: 'saw', went: 'went', never: 'never', would: 'would', will: 'will', could: 'could' };
+  let t = sentence;
+  t = t.replace(new RegExp(`(^|[,;]\\s*|\\b(?:and|but|so|then|because)\\s+)${who}\\s+(was|is|has|had|did|does|saw|went|never|would|will|could)\\b`, 'gi'),
+    (_m, pre: string, verb: string) => `${pre}${pre ? 'I' : 'I'} ${verbs[verb.toLowerCase()] ?? verb}`);
+  t = t.replace(new RegExp(`\\b${who}'s\\b`, 'gi'), (_m, off: number) => (off === 0 ? 'My' : 'my'));
+  // Once the speaker was rewritten to "I", a following "he saw" / "she was" in the same line means them too.
+  if (t !== sentence) t = t.replace(/\b(he|she)\s+(was|saw|went|had|did|is)\b/gi, (_m, _p, v: string) => `I ${v.toLowerCase() === 'is' ? 'am' : v}`);
+  t = t.replace(/^i\b/, 'I');
+  const still = new RegExp(`\\b(?:${alts})\\b`, 'i').test(t);
+  return { text: t, ok: !still };
 }
 
 /** Clean one spoken sentence: strip stage directions, brackets, speaker labels and dashes. */
@@ -236,12 +264,13 @@ export async function suspectReply(args: {
     let firstFailed = false;
     try {
       for await (const raw of src) {
-        const said = cleanSentence(raw);
+        const fixed = fixSelfReference(cleanSentence(raw), slice.suspect.name);
+        const said = fixed.text;
         if (!said || !/[\p{L}\p{N}]/u.test(said)) continue;
         const e0 = Date.now();
         const claims = extractDeterministic(said, { pub, speakerId: suspectId, questionSlots }, carry);
         const check = engine.checkReply(c, suspectId, claims);
-        const violations = [...check.violations, ...(confesses(said) ? ['confession'] : [])];
+        const violations = [...check.violations, ...(confesses(said) ? ['confession'] : []), ...(fixed.ok ? [] : ['spoke about themself by name'])];
         ms.extract.push(Date.now() - e0);
         attempts.push({ text: said, claims, ok: violations.length === 0, violations });
         if (violations.length) {

@@ -9,9 +9,11 @@
     "synth": "cdk synth",
     "diff": "cdk diff",
     "bootstrap": "cdk bootstrap",
-    "deploy": "npm run build:web && cdk deploy --require-approval never --outputs-file cdk-outputs.json",
+    "deploy": "cdk deploy --require-approval never --outputs-file cdk-outputs.json",
     "destroy": "cdk destroy --force",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy:cdn": "npm run build:web && cdk deploy -c cdn=true --require-approval never --outputs-file cdk-outputs.json",
+    "url": "scripts/url.sh"
   },
   "dependencies": {
     "aws-cdk-lib": "2.274.0",

@@ -1,7 +1,11 @@
 // Accomplice on AWS (ap-south-1).
 //
-//   phones, TV, Echo ──HTTPS/WSS──> CloudFront ──┬─ /tv/* /p/* /echo/* /assets/* /audio/* ─> S3 (fallback: ALB)
-//                                                └─ everything else (/ws /stt /api /mcp) ───> ALB ─> Fargate task
+// Default (cdn=false, tunnel=cloudflare):
+//   phones, TV, Echo ──HTTPS/WSS──> Cloudflare quick tunnel ──> cloudflared inside the Fargate task ──> server
+//   anyone          ──HTTP/WS────> ALB ──> Fargate task     (stable address, health checks)
+// With -c cdn=true (needs a CloudFront-verified account):
+//   devices ──HTTPS/WSS──> CloudFront ──┬─ /tv/* /p/* /echo/* /assets/* /audio/* ─> S3 (fallback: ALB)
+//                                       └─ everything else (/ws /stt /api /mcp) ───> ALB ─> Fargate task
 //   Fargate task ─> Polly (ap-south-1 neural, us-east-1 generative), Transcribe streaming, Translate,
 //                   DynamoDB (game + records tables), S3 audio cache, Secrets Manager (API keys), CloudWatch.
 //
@@ -15,7 +19,7 @@ import {
   aws_ec2 as ec2, aws_ecs as ecs, aws_elasticloadbalancingv2 as elbv2, aws_iam as iam,
   aws_dynamodb as ddb, aws_s3 as s3, aws_s3_deployment as s3deploy, aws_cloudfront as cf,
   aws_cloudfront_origins as origins, aws_secretsmanager as sm, aws_logs as logs, aws_cloudwatch as cw,
-  aws_ecr_assets as ecrAssets,
+  aws_ecr_assets as ecrAssets, aws_ssm as ssm,
 } from 'aws-cdk-lib';
 import type { Construct } from 'constructs';
 
@@ -29,6 +33,12 @@ export class AccompliceStack extends Stack {
     const ctx = (k: string, d: unknown) => this.node.tryGetContext(k) ?? d;
     const cpu = Number(ctx('cpu', 512));
     const memoryLimitMiB = Number(ctx('memoryMiB', 1024));
+    const flag = (k: string, d: boolean) => { const v = ctx(k, d); return v === true || v === 'true' || v === 'on'; };
+    // CloudFront is designed in but off by default: this account needs AWS verification before it may create
+    // CloudFront resources. Turn on with -c cdn=true once verified.
+    const cdn = flag('cdn', false);
+    // HTTPS for phones without CloudFront or a domain: a Cloudflare quick tunnel from inside the container.
+    const tunnel = String(ctx('tunnel', 'cloudflare')) === 'cloudflare' && !cdn;
 
     // ---------- network: two public subnets, no NAT gateway (saves ~$33/month) ----------
     const vpc = new ec2.Vpc(this, 'Vpc', {
@@ -54,7 +64,7 @@ export class AccompliceStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    // One private bucket for the web apps, art, music and the rendered voice cache. Only CloudFront reads it.
+    // One private bucket for the rendered voice cache (and, with CloudFront, the web apps and art).
     const bucket = new s3.Bucket(this, 'StaticBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -70,60 +80,74 @@ export class AccompliceStack extends Stack {
       secretStringValue: SecretValue.unsafePlainText(JSON.stringify({ ANTHROPIC_API_KEY: '', ELEVENLABS_API_KEY: '' })),
     });
 
-    // ---------- load balancer: only CloudFront may reach it ----------
-    const cfPrefixList = ec2.PrefixList.fromLookup(this, 'CloudFrontOriginFacing', { prefixListName: 'com.amazonaws.global.cloudfront.origin-facing' });
-    const albSg = new ec2.SecurityGroup(this, 'AlbSg', { vpc, description: 'ALB: HTTP from CloudFront only', allowAllOutbound: false });
-    albSg.addIngressRule(ec2.Peer.prefixList(cfPrefixList.prefixListId), ec2.Port.tcp(80), 'CloudFront origin-facing');
+    // ---------- load balancer: CloudFront only when the CDN is on, otherwise open HTTP ----------
+    const albSg = new ec2.SecurityGroup(this, 'AlbSg', { vpc, description: cdn ? 'ALB: HTTP from CloudFront only' : 'ALB: public HTTP', allowAllOutbound: false });
+    if (cdn) {
+      const cfPrefixList = ec2.PrefixList.fromLookup(this, 'CloudFrontOriginFacing', { prefixListName: 'com.amazonaws.global.cloudfront.origin-facing' });
+      albSg.addIngressRule(ec2.Peer.prefixList(cfPrefixList.prefixListId), ec2.Port.tcp(80), 'CloudFront origin-facing');
+    } else {
+      albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'Public HTTP');
+    }
     const alb = new elbv2.ApplicationLoadBalancer(this, 'Alb', {
       vpc, internetFacing: true, securityGroup: albSg,
       idleTimeout: Duration.seconds(3600), // keep idle game sockets open
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
     });
 
-    // ---------- CloudFront: one HTTPS origin for everything, WebSockets included ----------
-    const albOrigin = new origins.LoadBalancerV2Origin(alb, {
-      protocolPolicy: cf.OriginProtocolPolicy.HTTP_ONLY,
-      readTimeout: Duration.seconds(60),
-      keepaliveTimeout: Duration.seconds(60),
-    });
-    const s3Origin = origins.S3BucketOrigin.withOriginAccessControl(bucket);
-    // Static paths read S3 first; a miss (403/404) falls through to the server, which has the same files.
-    // That covers SPA deep links and voice lines rendered a moment ago and not yet copied to S3.
-    const staticGroup = new origins.OriginGroup({ primaryOrigin: s3Origin, fallbackOrigin: albOrigin, fallbackStatusCodes: [403, 404] });
-    const indexRewrite = new cf.Function(this, 'IndexRewrite', {
-      runtime: cf.FunctionRuntime.JS_2_0,
-      comment: 'Serve <app>/index.html for directory requests',
-      code: cf.FunctionCode.fromInline(
-        "function handler(event) { var r = event.request; if (r.uri.endsWith('/')) { r.uri += 'index.html'; } return r; }"),
-    });
-    const staticBehavior = (rewrite: boolean): cf.BehaviorOptions => ({
-      origin: staticGroup,
-      viewerProtocolPolicy: cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      allowedMethods: cf.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
-      cachePolicy: cf.CachePolicy.CACHING_OPTIMIZED,
-      compress: true,
-      functionAssociations: rewrite ? [{ function: indexRewrite, eventType: cf.FunctionEventType.VIEWER_REQUEST }] : undefined,
-    });
-    const distribution = new cf.Distribution(this, 'Cdn', {
-      comment: 'Accomplice game',
-      priceClass: cf.PriceClass.PRICE_CLASS_200, // includes India edge locations
-      httpVersion: cf.HttpVersion.HTTP2_AND_3,
-      defaultBehavior: {
-        origin: albOrigin,
+    let distribution: cf.Distribution | undefined;
+    if (cdn) {
+      // ---------- CloudFront: one HTTPS origin for everything, WebSockets included ----------
+      const albOrigin = new origins.LoadBalancerV2Origin(alb, {
+        protocolPolicy: cf.OriginProtocolPolicy.HTTP_ONLY,
+        readTimeout: Duration.seconds(60),
+        keepaliveTimeout: Duration.seconds(60),
+      });
+      const s3Origin = origins.S3BucketOrigin.withOriginAccessControl(bucket);
+      // Static paths read S3 first; a miss (403/404) falls through to the server, which has the same files.
+      // That covers SPA deep links and voice lines rendered a moment ago and not yet copied to S3.
+      const staticGroup = new origins.OriginGroup({ primaryOrigin: s3Origin, fallbackOrigin: albOrigin, fallbackStatusCodes: [403, 404] });
+      const indexRewrite = new cf.Function(this, 'IndexRewrite', {
+        runtime: cf.FunctionRuntime.JS_2_0,
+        comment: 'Serve <app>/index.html for directory requests',
+        code: cf.FunctionCode.fromInline(
+          "function handler(event) { var r = event.request; if (r.uri.endsWith('/')) { r.uri += 'index.html'; } return r; }"),
+      });
+      const staticBehavior = (rewrite: boolean): cf.BehaviorOptions => ({
+        origin: staticGroup,
         viewerProtocolPolicy: cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        allowedMethods: cf.AllowedMethods.ALLOW_ALL,
-        cachePolicy: cf.CachePolicy.CACHING_DISABLED,
-        originRequestPolicy: cf.OriginRequestPolicy.ALL_VIEWER, // forwards the WebSocket upgrade headers
-      },
-      additionalBehaviors: {
-        '/tv/*': staticBehavior(true),
-        '/p/*': staticBehavior(true),
-        '/echo/*': staticBehavior(true),
-        '/assets/*': staticBehavior(false),
-        '/audio/*': staticBehavior(false),
-      },
+        allowedMethods: cf.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachePolicy: cf.CachePolicy.CACHING_OPTIMIZED,
+        compress: true,
+        functionAssociations: rewrite ? [{ function: indexRewrite, eventType: cf.FunctionEventType.VIEWER_REQUEST }] : undefined,
+      });
+      distribution = new cf.Distribution(this, 'Cdn', {
+        comment: 'Accomplice game',
+        priceClass: cf.PriceClass.PRICE_CLASS_200, // includes India edge locations
+        httpVersion: cf.HttpVersion.HTTP2_AND_3,
+        defaultBehavior: {
+          origin: albOrigin,
+          viewerProtocolPolicy: cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cf.AllowedMethods.ALLOW_ALL,
+          cachePolicy: cf.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cf.OriginRequestPolicy.ALL_VIEWER, // forwards the WebSocket upgrade headers
+        },
+        additionalBehaviors: {
+          '/tv/*': staticBehavior(true),
+          '/p/*': staticBehavior(true),
+          '/echo/*': staticBehavior(true),
+          '/assets/*': staticBehavior(false),
+          '/audio/*': staticBehavior(false),
+        },
+      });
+    }
+    const albUrl = `http://${alb.loadBalancerDnsName}`;
+    // With the tunnel, the container replaces this with its https://*.trycloudflare.com address at start.
+    const publicUrl = distribution ? `https://${distribution.distributionDomainName}` : albUrl;
+    const urlParam = new ssm.StringParameter(this, 'PublicUrlParam', {
+      parameterName: '/accomplice/public-url',
+      stringValue: publicUrl,
+      description: 'Current public game URL. The server overwrites it on start (the tunnel URL changes per start).',
     });
-    const publicUrl = `https://${distribution.distributionDomainName}`;
 
     // ---------- compute: one small ARM Fargate task ----------
     const cluster = new ecs.Cluster(this, 'Cluster', { vpc, containerInsightsV2: ecs.ContainerInsights.DISABLED });
@@ -158,6 +182,9 @@ export class AccompliceStack extends Stack {
       sid: 'AudioCacheList', actions: ['s3:ListBucket'], resources: [bucket.bucketArn],
       conditions: { StringLike: { 's3:prefix': ['audio/*'] } },
     }));
+    role.addToPrincipalPolicy(new iam.PolicyStatement({
+      sid: 'PublishPublicUrl', actions: ['ssm:PutParameter'], resources: [urlParam.parameterArn],
+    }));
 
     const image = ecs.ContainerImage.fromAsset(REPO_ROOT, {
       file: 'apps/server/Dockerfile',
@@ -188,6 +215,8 @@ export class AccompliceStack extends Stack {
         EMF_NAMESPACE: NAMESPACE,
         ACCOMPLICE_RECORDS: 'dynamodb',
         ACCOMPLICE_RECORDS_TABLE: recordsTable.tableName,
+        PUBLIC_URL_PARAM: urlParam.parameterName,
+        ...(tunnel ? { TUNNEL: 'cloudflare' } : {}),
       },
       // Injected at start by the execution role; never in the image or the template.
       secrets: {
@@ -215,40 +244,43 @@ export class AccompliceStack extends Stack {
       healthCheck: { path: '/api/health', interval: Duration.seconds(30), healthyThresholdCount: 2, unhealthyThresholdCount: 3 },
     });
 
-    // ---------- static files to S3 ----------
-    // Built web apps: hashed bundles are immutable, everything else (index.html, icons) revalidates after a minute.
-    const apps: [string, string][] = [['tv', 'apps/tv-web/dist'], ['p', 'apps/phone/dist'], ['echo', 'apps/echo-sim/dist']];
-    for (const [prefix, rel] of apps) {
-      const dir = path.join(REPO_ROOT, rel);
-      if (!existsSync(path.join(dir, 'index.html'))) {
-        throw new Error(`${rel} is missing. Build the web apps first: npm --prefix infra run build:web`);
+    // ---------- static files to S3 (CloudFront mode only; otherwise the server serves /tv /p /echo /assets) ----------
+    if (cdn) {
+      // ---------- static files to S3 ----------
+      // Built web apps: hashed bundles are immutable, everything else (index.html, icons) revalidates after a minute.
+      const apps: [string, string][] = [['tv', 'apps/tv-web/dist'], ['p', 'apps/phone/dist'], ['echo', 'apps/echo-sim/dist']];
+      for (const [prefix, rel] of apps) {
+        const dir = path.join(REPO_ROOT, rel);
+        if (!existsSync(path.join(dir, 'index.html'))) {
+          throw new Error(`${rel} is missing. Build the web apps first: npm --prefix infra run build:web`);
+        }
+        const name = prefix[0].toUpperCase() + prefix.slice(1);
+        new s3deploy.BucketDeployment(this, `${name}Bundles`, {
+          sources: [s3deploy.Source.asset(dir)], destinationBucket: bucket, destinationKeyPrefix: `${prefix}/`,
+          exclude: ['*'], include: ['assets/*'], prune: false, memoryLimit: 512,
+          cacheControl: [s3deploy.CacheControl.fromString('public, max-age=31536000, immutable')],
+        });
+        new s3deploy.BucketDeployment(this, `${name}Pages`, {
+          sources: [s3deploy.Source.asset(dir)], destinationBucket: bucket, destinationKeyPrefix: `${prefix}/`,
+          exclude: ['assets/*'], prune: false, memoryLimit: 512,
+          cacheControl: [s3deploy.CacheControl.fromString('public, max-age=60')],
+          distribution, distributionPaths: [`/${prefix}/*`],
+        });
       }
-      const name = prefix[0].toUpperCase() + prefix.slice(1);
-      new s3deploy.BucketDeployment(this, `${name}Bundles`, {
-        sources: [s3deploy.Source.asset(dir)], destinationBucket: bucket, destinationKeyPrefix: `${prefix}/`,
-        exclude: ['*'], include: ['assets/*'], prune: false, memoryLimit: 512,
-        cacheControl: [s3deploy.CacheControl.fromString('public, max-age=31536000, immutable')],
-      });
-      new s3deploy.BucketDeployment(this, `${name}Pages`, {
-        sources: [s3deploy.Source.asset(dir)], destinationBucket: bucket, destinationKeyPrefix: `${prefix}/`,
-        exclude: ['assets/*'], prune: false, memoryLimit: 512,
-        cacheControl: [s3deploy.CacheControl.fromString('public, max-age=60')],
-        distribution, distributionPaths: [`/${prefix}/*`],
+      // Shared art, music and sound effects (the voice audition samples stay out).
+      new s3deploy.BucketDeployment(this, 'SharedAssets', {
+        sources: [s3deploy.Source.asset(path.join(REPO_ROOT, 'assets'), { exclude: ['audio/auditions/**', '**/.DS_Store'] })],
+        destinationBucket: bucket, destinationKeyPrefix: 'assets/', prune: false, memoryLimit: 512,
+        cacheControl: [s3deploy.CacheControl.fromString('public, max-age=86400')],
       });
     }
-    // Shared art, music and sound effects (the voice audition samples stay out).
-    new s3deploy.BucketDeployment(this, 'SharedAssets', {
-      sources: [s3deploy.Source.asset(path.join(REPO_ROOT, 'assets'), { exclude: ['audio/auditions/**', '**/.DS_Store'] })],
-      destinationBucket: bucket, destinationKeyPrefix: 'assets/', prune: false, memoryLimit: 512,
-      cacheControl: [s3deploy.CacheControl.fromString('public, max-age=86400')],
-    });
 
     // ---------- CloudWatch dashboard ----------
     const m = (metricName: string, statistic: string, label?: string, period = Duration.minutes(1)) =>
       new cw.Metric({ namespace: NAMESPACE, metricName, dimensionsMap: { Service: 'game-server' }, statistic, label: label ?? `${metricName} ${statistic}`, period });
     const dash = new cw.Dashboard(this, 'Dashboard', { dashboardName: 'Accomplice', defaultInterval: Duration.hours(6) });
     dash.addWidgets(
-      new cw.TextWidget({ width: 24, height: 2, markdown: `## Accomplice live game server\nPlay at ${publicUrl}/tv . Metrics come from structured log lines (Embedded Metric Format) written by the server.` }),
+      new cw.TextWidget({ width: 24, height: 2, markdown: `## Accomplice live game server\nPlay at ${tunnel ? 'the address in SSM /accomplice/public-url (run infra/scripts/url.sh)' : publicUrl + '/tv'}. Metrics come from structured log lines (Embedded Metric Format) written by the server.` }),
     );
     dash.addWidgets(
       new cw.GraphWidget({ title: 'Rooms and players', width: 8, left: [m('ActiveRooms', 'Maximum', 'rooms'), m('RoomsInGame', 'Maximum', 'rooms in a game'), m('ConnectedClients', 'Maximum', 'connected screens')] }),
@@ -269,10 +301,9 @@ export class AccompliceStack extends Stack {
     );
 
     // ---------- outputs ----------
-    new CfnOutput(this, 'Url', { value: publicUrl, description: 'Open /tv on the TV; phones join from the QR code' });
-    new CfnOutput(this, 'TvUrl', { value: `${publicUrl}/tv/` });
-    new CfnOutput(this, 'EchoUrl', { value: `${publicUrl}/echo/` });
-    new CfnOutput(this, 'McpUrl', { value: `${publicUrl}/mcp` });
+    new CfnOutput(this, 'Url', { value: publicUrl, description: tunnel ? 'Plain HTTP address. The HTTPS game address is in SSM /accomplice/public-url (infra/scripts/url.sh)' : 'Open /tv on the TV; phones join from the QR code' });
+    new CfnOutput(this, 'AlbUrl', { value: albUrl });
+    new CfnOutput(this, 'PublicUrlParameter', { value: urlParam.parameterName });
     new CfnOutput(this, 'SecretArn', { value: keys.secretArn });
     new CfnOutput(this, 'ClusterName', { value: cluster.clusterName });
     new CfnOutput(this, 'ServiceName', { value: service.serviceName });

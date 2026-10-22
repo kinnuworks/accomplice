@@ -151,3 +151,26 @@ describe('generateCase', () => {
     }
   });
 });
+
+describe('newspaper headlines', () => {
+  const unhyphenated = /\b(well earned|red handed|sharp eyed|hard up|roly poly|well known|long awaited|cold blooded)\b/i;
+  for (const tone of tones) {
+    it(`reads like a real front page for 50 ${tone} seeds`, () => {
+      for (let seed = 1; seed <= 50; seed++) {
+        const c = generateCase({ seed, tone, difficulty: 2 });
+        const { title, sub } = c.headline!;
+        const rendered = sub.replace('{DETECTIVE}', 'Sam');
+        expect(sub).toContain('{DETECTIVE}');
+        for (const line of [title, rendered]) {
+          expect(line, line).not.toMatch(/\{\w+\}/);
+          expect(line, line).not.toMatch(/\s{2,}|^\s|\s$/);
+          expect(line, line).not.toMatch(unhyphenated);
+          expect(line, line).not.toMatch(/\s[,;:.]|[,;:]{2}|undefined|null/);
+          expect(line, line).not.toMatch(/—/);
+        }
+        expect(title).toBe(title.toUpperCase());
+        expect(rendered.charAt(0)).toBe(rendered.charAt(0).toUpperCase());
+      }
+    });
+  }
+});

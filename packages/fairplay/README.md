@@ -39,7 +39,7 @@ await shutdownSolver(); // lets Node exit
 Or try it without installing anything into a project:
 
 ```sh
-git clone https://github.com/dhirajkavuri/fairplay && cd fairplay && npm install
+git clone https://github.com/kinnuworks/fairplay && cd fairplay && npm install
 npx tsx examples/cli.ts 42 classic --solve      # a full case in your terminal
 npm run build && npx serve .                    # then open /examples/playground/
 ```

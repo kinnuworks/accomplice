@@ -38,7 +38,7 @@ Other ways in:
 
 **Phones.** A web page with large targets, screen-reader labels on everything, and haptic cues for hold-to-talk. 31 screens with zero axe accessibility violations.
 
-**Alexa+.** An MCP server on spec 2025-11-25 over Streamable HTTP: case generation runs as a task, the accusation uses elicitation to confirm, and the evidence board is an MCP Apps `ui://` card. Game state is keyed by household so the conversation can pick up later. [Strands agent host: what it does, once merged.]
+**Alexa+.** An MCP server on spec 2025-11-25 over Streamable HTTP: case generation runs as a task, the accusation uses elicitation to confirm, and the evidence board is an MCP Apps `ui://` card. Game state is keyed by household so the conversation can pick up later. A house host built with Strands Agents connects to the same MCP tools and follows the add-on's SKILL.md, so it can answer questions like "remind me what the cook said" and question a suspect for you. It never accuses without a spoken yes. Simple commands skip the agent and answer instantly; agent answers start speaking in 0.9 to 2.9 s.
 
 **AWS.** One CDK stack: ECS Fargate (ARM) behind a load balancer, DynamoDB for room snapshots (a game survives a server restart) and detective records, S3 for the voice cache, Secrets Manager, a CloudWatch game dashboard and a $150 budget cap. [Live URL.]
 

@@ -154,7 +154,7 @@ export const SETTINGS: SettingDef[] = [
         opening: 'The Sapphire Express is hosting the Great Train Bake Off. The ovens are hot, the passengers are hungry, and the judges are very, very serious.',
         crimes: [
           { victim: 'the Golden Teapot trophy', short: 'the trophy', description: 'A gleaming golden teapot, awarded to the best baker on the line.', what: 'vanished', line: '{victim} vanished from the {room} at {time}. All that is left is a teapot shaped dust mark.' },
-          { victim: 'the championship jam roly poly', short: 'the roly poly', description: 'The favourite to win. Still warm. Smelled like a hug.', what: 'vanished', line: 'At {time}, {victim} vanished from the {room}. A trail of custard leads absolutely nowhere.' },
+          { victim: 'the championship jam roly-poly', short: 'the roly-poly', description: 'The favourite to win. Still warm. Smelled like a hug.', what: 'vanished', line: 'At {time}, {victim} vanished from the {room}. A trail of custard leads absolutely nowhere.' },
         ],
         items: [
           { id: 'trolley', name: 'tea trolley', home: 'dining' },
@@ -396,14 +396,16 @@ export const CONFESSION_CLOSER: Record<Tone, string[]> = {
 };
 
 export const HEADLINES: Record<Tone, string[]> = {
-  classic: ['{N} DINNER ENDS IN DISGRACE', 'SCANDAL AT {N}', '{N} MYSTERY CRACKED'],
-  cozy: ['GREAT {X} CAPER CRACKED', '{X} THIEF UNMASKED AT {N}', '{N} {X} MYSTERY SOLVED'],
+  classic: ['{N} DINNER ENDS IN DISGRACE', 'SCANDAL AT {N}', '{N} MYSTERY SOLVED', 'CAUGHT RED-HANDED AT {N}'],
+  cozy: ['GREAT {X} CAPER CRACKED', '{X} THIEF UNMASKED AT {N}', 'CAUGHT RED-HANDED: THE {X} AFFAIR'],
 };
 
+/** {R} = role without "the", capitalised; {RL} = role with "the"; {S} = culprit short name. */
 export const HEADLINE_SUBS = [
-  '{R} unmasked; {DETECTIVE} toasts a famous victory',
-  '{S}, {RL}, confesses all; {DETECTIVE} cracks the case',
-  '{R} caught out; {DETECTIVE} takes a well earned bow',
+  '{R} unmasked as culprit; {DETECTIVE} toasts a famous victory',
+  '{S}, {RL}, confesses all as {DETECTIVE} cracks the case',
+  '{R} caught red-handed; {DETECTIVE} takes a well-earned bow',
+  'Sharp-eyed {DETECTIVE} exposes {S}, {RL}',
 ];
 
 export const RETORTS: Record<Tone, string[]> = {

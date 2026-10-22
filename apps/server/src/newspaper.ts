@@ -8,12 +8,26 @@ import { REPO_ROOT } from './config.js';
 import { escapeXml } from './tts.js';
 import { log } from './log.js';
 
-export function buildNewspaper(c: Case, opts: { players: Newspaper['players']; detective?: string }): Newspaper {
+/** The headline credits the best detective, never the accomplice; if the accomplice won, the paper says so. */
+export function creditDetective(players: Newspaper['players'], accompliceId: string | null, firstNamed: Map<string, number>): { detective?: string; accompliceWon: boolean } {
+  const detectives = players.filter((p) => p.id !== accompliceId);
+  const acc = players.find((p) => p.id === accompliceId);
+  const top = Math.max(-1, ...detectives.map((p) => p.score));
+  const accompliceWon = !!acc && acc.score > top;
+  const best = detectives.filter((p) => p.score === top)
+    .sort((a, b) => (firstNamed.get(a.id) ?? Infinity) - (firstNamed.get(b.id) ?? Infinity))[0];
+  return { detective: best?.name, accompliceWon };
+}
+
+export function buildNewspaper(c: Case, opts: { players: Newspaper['players']; detective?: string; accompliceWon?: boolean }): Newspaper {
   const culprit = c.suspects.find((s) => s.id === c.truth.culprit)!;
   const item = c.items.find((i) => i.id === c.crime.item);
   const detective = opts.detective ?? 'the guests';
   const title = c.headline?.title ?? `${culprit.name.toUpperCase()} UNMASKED`;
-  const sub = (c.headline?.sub ?? `${detective} cracks the case at ${c.place}; ${item ? `the ${item.name} was the key` : 'justice is served'}`).replace(/\{DETECTIVE\}/g, detective);
+  const headline = c.headline as (Case['headline'] & { accompliceSub?: string }) | undefined;
+  const sub = opts.accompliceWon
+    ? (headline?.accompliceSub ?? "The culprit's helper slips away with the silverware")
+    : (headline?.sub ?? `${detective} cracks the case at ${c.place}; ${item ? `the ${item.name} was the key` : 'justice is served'}`).replace(/\{DETECTIVE\}/g, detective);
   return {
     paperName: c.paperName ?? (c.tone === 'cozy' ? 'The Village Crier' : 'The Evening Courier'),
     title, sub, date: c.dateLine, culpritPortrait: culprit.portrait, players: opts.players,

@@ -129,3 +129,29 @@ describe('speech helpers', () => {
     expect(durationMs).toBeGreaterThan(marks[2].time);
   });
 });
+
+describe('first person', () => {
+  it('rewrites a suspect narrating themselves, and flags what it cannot fix', async () => {
+    const { fixSelfReference } = await import('../src/suspects.js');
+    expect(fixSelfReference('Hugo was in the Store Room at 10:00 pm, and there he saw only Rohan Kapoor.', 'Hugo Brandt'))
+      .toEqual({ text: 'I was in the Store Room at 10:00 pm, and there I saw only Rohan Kapoor.', ok: true });
+    expect(fixSelfReference("Dr. Sen's alibi is airtight.", 'Dr. Anjali Sen').text).toBe('My alibi is airtight.');
+    expect(fixSelfReference('They call me Hugo, you know.', 'Hugo Brandt').ok).toBe(false);
+    expect(fixSelfReference('I saw Rohan in the hall.', 'Hugo Brandt')).toEqual({ text: 'I saw Rohan in the hall.', ok: true });
+  });
+});
+
+describe('newspaper credit', () => {
+  it('credits the best non-accomplice, breaks ties by who named the culprit first, and teases an accomplice win', async () => {
+    const { creditDetective } = await import('../src/newspaper.js');
+    const pl = (id: string, score: number) => ({ id, name: id.toUpperCase(), score, role: null, correct: true });
+    expect(creditDetective([pl('a', 3), pl('b', 5), pl('acc', 4)], 'acc', new Map())).toEqual({ detective: 'B', accompliceWon: false });
+    expect(creditDetective([pl('a', 5), pl('b', 5), pl('acc', 1)], 'acc', new Map([['b', 1], ['a', 2]]))).toEqual({ detective: 'B', accompliceWon: false });
+    const won = creditDetective([pl('a', 0), pl('b', 2), pl('acc', 9)], 'acc', new Map());
+    expect(won).toEqual({ detective: 'B', accompliceWon: true });
+    const { buildNewspaper } = await import('../src/newspaper.js');
+    const { c } = await (await import('../src/engine.js')).loadEngine().then((e) => e.generateVerifiedCase({ seed: 4, tone: 'classic', difficulty: 2 }));
+    expect(buildNewspaper(c, { players: [], ...won }).sub).toMatch(/slips away/);
+    expect(buildNewspaper(c, { players: [], detective: 'B', accompliceWon: false }).sub).toContain('B');
+  });
+});

@@ -38,6 +38,8 @@ export const cfg = {
   speechWait: num(env.SPEECH_WAIT, 1),
   /** Soft timer shown on screens; it never ends a phase by itself. 0 = no timer. */
   roundSeconds: num(env.ROUND_SECONDS, 240),
+  /** After everyone has used their questions and the room is quiet, wait this long then move on. 0 = off. */
+  autoAdvanceMs: num(env.AUTO_ADVANCE_MS, 8000),
   moreTimeSeconds: num(env.MORE_TIME_SECONDS, 60),
   /** Cold open with a free practice question before round one. */
   tutorial: (env.TUTORIAL ?? 'on') !== 'off',

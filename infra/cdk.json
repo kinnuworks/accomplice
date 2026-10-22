@@ -8,6 +8,8 @@
   },
   "context": {
     "region": "ap-south-1",
+    "cdn": false,
+    "tunnel": "cloudflare",
     "cpu": 512,
     "memoryMiB": 1024,
     "narratorProvider": "polly",
