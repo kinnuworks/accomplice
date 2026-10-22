@@ -1,0 +1,22 @@
+// Run the add-on alone, backed by the fake game, for working on the Echo simulator
+// without the full game server:  pnpm --filter @accomplice/mcp-game dev
+import { createServer } from 'node:http';
+import { createMcpHandler } from './handler.ts';
+import { createFakeGameApi } from './fake.ts';
+import type { GameApi } from './types.ts';
+
+const games = new Map<string, GameApi>();
+const mcp = createMcpHandler((household) => {
+  let g = games.get(household);
+  if (!g) { g = createFakeGameApi({ stepMs: 700 }); games.set(household, g); }
+  return g;
+});
+
+const port = Number(process.env.PORT ?? 8787);
+createServer((req, res) => {
+  if (req.url?.startsWith('/mcp')) return void mcp(req, res);
+  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}'); return; }
+  res.writeHead(404).end();
+}).listen(port, () => {
+  console.log(`Accomplice add-on (fake game) listening on http://localhost:${port}/mcp`);
+});
