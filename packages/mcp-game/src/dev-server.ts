@@ -13,9 +13,19 @@ const mcp = createMcpHandler((household) => {
   return g;
 });
 
+// the Strands house host, when a model key is around (node --env-file=../../apps/server/.env ...)
+let host: ((req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => Promise<void>) | null = null;
+if (process.env.ANTHROPIC_API_KEY) {
+  try {
+    const h = await import(new URL('../../host-agent/src/index.ts', import.meta.url).href);
+    host = h.createHostHandler();
+  } catch (e) { console.warn('House host not available:', (e as Error).message); }
+}
+
 const port = Number(process.env.PORT ?? 8787);
 createServer((req, res) => {
   if (req.url?.startsWith('/mcp')) return void mcp(req, res);
+  if (req.url === '/api/host' && host) return void host(req, res);
   // portraits, the way the game server serves them from the TV app
   const art = req.url?.match(/^\/tv\/art\/(portraits\/[a-z0-9-]+\.webp)$/);
   if (art) {
@@ -27,5 +37,5 @@ createServer((req, res) => {
   if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}'); return; }
   res.writeHead(404).end();
 }).listen(port, () => {
-  console.log(`Accomplice add-on (fake game) listening on http://localhost:${port}/mcp`);
+  console.log(`Accomplice add-on (fake game) listening on http://localhost:${port}/mcp${host ? ', house host on /api/host' : ''}`);
 });

@@ -100,3 +100,48 @@ export async function speak(text: string, audioUrl?: string, muted = false): Pro
   }
   await synth(text);
 }
+
+/** Plays lines one after another (server audio or synthesized), so streamed sentences queue up naturally. */
+export class SpeechQueue {
+  private items: { text: string; audioUrl?: string }[] = [];
+  private running = false;
+  private muted: () => boolean;
+  onStart?: () => void;
+  onIdle?: () => void;
+  constructor(muted: () => boolean) { this.muted = muted; }
+  push(text: string, audioUrl?: string) {
+    const clean = text.replace(/[*_#`>]+/g, '').trim();
+    if (!clean && !audioUrl) return;
+    this.items.push({ text: clean, audioUrl });
+    void this.run();
+  }
+  clear() { this.items = []; stopSpeaking(); }
+  get busy() { return this.running || this.items.length > 0; }
+  private async run() {
+    if (this.running) return;
+    this.running = true;
+    this.onStart?.();
+    while (this.items.length) {
+      const it = this.items.shift()!;
+      await speakOne(it.text, it.audioUrl, this.muted());
+    }
+    this.running = false;
+    this.onIdle?.();
+  }
+}
+
+/** Like speak(), but does not cancel what is already queued. */
+async function speakOne(text: string, audioUrl: string | undefined, muted: boolean): Promise<void> {
+  if (muted) { await new Promise((r) => setTimeout(r, Math.min(2500, 300 + text.length * 25))); return; }
+  if (audioUrl) {
+    const audio = new Audio(audioUrl);
+    const ok = await new Promise<boolean>((resolve) => {
+      audio.onended = () => resolve(true);
+      audio.onerror = () => resolve(false);
+      current = { stop: () => { audio.pause(); resolve(true); } };
+      audio.play().catch(() => resolve(false));
+    });
+    if (ok) return;
+  }
+  await synth(text);
+}

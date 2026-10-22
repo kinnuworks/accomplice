@@ -49,3 +49,22 @@ test('confirmations and fallbacks', () => {
   assert.deepEqual(tool('stop'), { kind: 'stop' });
   assert.deepEqual(tool('what is the weather'), { kind: 'unknown' });
 });
+
+test('records, resuming and handing off to the TV', () => {
+  assert.deepEqual(tool("let's finish last night's case"), { tool: 'resume_case' });
+  assert.deepEqual(tool('pick up where we left off'), { tool: 'resume_case' });
+  assert.deepEqual(tool('join the game on the TV, code A B C D'), { tool: 'send_to_tv' });
+  assert.deepEqual(tool('continue the case with code abcd'), { tool: 'resume_case', room: 'ABCD' });
+  assert.deepEqual(tool('how are we doing?'), { tool: 'my_detective_record' });
+  assert.deepEqual(tool("what's our record"), { tool: 'my_detective_record' });
+  assert.deepEqual(tool('continue on the TV'), { tool: 'send_to_tv' });
+  assert.deepEqual(tool('put it on the fire tv'), { tool: 'send_to_tv' });
+  assert.deepEqual(tool('start the case of the week'), { tool: 'start_case', tone: 'classic', weekly: true });
+});
+
+test('judgement and memory questions go to the house host', () => {
+  assert.deepEqual(tool('remind me what the butler said'), { kind: 'unknown' });
+  assert.deepEqual(tool('I think it was the cook with the port, are we sure?'), { kind: 'unknown' });
+  assert.deepEqual(tool('who was near the kitchen around nine?'), { kind: 'unknown' });
+  assert.deepEqual(tool('remind me'), { tool: 'case_summary' });
+});

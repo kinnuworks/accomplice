@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CallToolResult, ElicitResult } from '@modelcontextprotocol/sdk/types.js';
 import { GameConnection, type ConnectionInfo, type TrafficEntry } from './mcp.ts';
 import { route, HELP_TEXT } from './router.ts';
-import { canListen, listen, speak, stopSpeaking, type ListenHandle } from './speech.ts';
+import { canListen, listen, speak, stopSpeaking, SpeechQueue, type ListenHandle } from './speech.ts';
+import { askHost, SentenceSplitter } from './hostAgent.ts';
 import { AppFrame, type AppFrameHandle } from './AppFrame.tsx';
 import { Drawer } from './Drawer.tsx';
+import { DEMO_SCRIPT } from './demoScript.ts';
 
 type Status = 'idle' | 'listening' | 'thinking' | 'speaking';
 interface Board { uri: string; html: string; csp?: { connectDomains?: string[]; resourceDomains?: string[] } }
@@ -12,6 +14,8 @@ interface UiMeta { resourceUri?: string; invoking?: string; invoked?: string }
 
 const params = new URLSearchParams(location.search);
 const HOUSEHOLD = params.get('household') ?? 'living-room';
+/** The Strands house host handles anything the instant router does not. ?agent=0 turns it off. */
+const USE_AGENT = params.get('agent') !== '0';
 const MCP_URL = new URL(params.get('mcp') ?? '/mcp', location.origin);
 const SCREEN_W = 1280;
 const SCREEN_H = 800; // Echo Show 8 and 15: 1280x800, Alexa root scale 1.667
@@ -24,7 +28,8 @@ function uiMetaOf(meta: unknown): UiMeta {
 function speechOf(r: CallToolResult): { text: string; audioUrl?: string } {
   const sc = (r.structuredContent ?? {}) as Record<string, any>;
   const text = sc.speech ?? r.content.filter((c) => c.type === 'text').map((c) => (c as { text: string }).text).join(' ');
-  const audioUrl = sc.audioUrl ?? sc.hint?.audioUrl ?? sc.result?.audioUrl ?? sc.case?.introAudioUrl;
+  // a suspect's own voice first, then the TV narrator's voice, then the device reads the text
+  const audioUrl = sc.audioUrl ?? sc.hint?.audioUrl ?? sc.result?.audioUrl ?? sc.narrationUrl;
   return { text, audioUrl };
 }
 
@@ -51,6 +56,8 @@ export function App() {
   const [typed, setTyped] = useState('');
   const [traffic, setTraffic] = useState<TrafficEntry[]>([]);
   const [scale, setScale] = useState(0.6);
+  const scripted = params.get('script') === '1';
+  const [scriptStep, setScriptStep] = useState(0);
 
   const frame = useRef<AppFrameHandle | null>(null);
   const frameQueue = useRef<Array<(f: AppFrameHandle) => void>>([]);
@@ -62,6 +69,7 @@ export function App() {
   const listening = useRef<ListenHandle | null>(null);
   const suspects = useRef<{ id: string; name: string; role: string }[]>([]);
   const pendingConfirm = useRef<{ culprit: string; item?: string } | null>(null);
+  const confirmFromAgent = useRef(false);
   const elicitRef = useRef(elicit);
   elicitRef.current = elicit;
   const mutedRef = useRef(muted);
@@ -137,6 +145,7 @@ export function App() {
     }
     setStatusLine(meta.invoked ?? '');
     afterResult(result);
+    confirmFromAgent.current = false;
     if (!fromView) toFrame((f) => f.sendResult(result));
     const { text, audioUrl } = speechOf(result);
     void say(text, audioUrl).then(() => {
@@ -165,6 +174,76 @@ export function App() {
     e.resolve(yes ? { action: 'accept', content: { confirm: true } } : { action: 'decline' });
   }, []);
 
+  // ---------- the Strands house host (free-form speech) ----------
+  const queue = useMemo(() => new SpeechQueue(() => mutedRef.current), []);
+  useEffect(() => {
+    queue.onStart = () => setStatus('speaking');
+    queue.onIdle = () => {
+      setStatus('idle');
+      setStatusLine('');
+      if (pendingConfirm.current) startListening();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue]);
+
+  const runHost = useCallback(async (text: string): Promise<boolean> => {
+    stopSpeaking();
+    queue.clear();
+    setStatus('thinking');
+    setStatusLine('Thinking it over...');
+    setCaption('');
+    const t0 = performance.now();
+    let firstWordMs: number | null = null;
+    let spoken = '';
+    const splitter = new SentenceSplitter();
+    const sayLine = (line: string) => {
+      if (firstWordMs === null) firstWordMs = Math.round(performance.now() - t0);
+      spoken = `${spoken} ${line}`.trim();
+      setCaption(spoken);
+      queue.push(line);
+    };
+    conn.log.note('agent', 'out', 'host/turn', 'request', { utterance: text, household: HOUSEHOLD }, `"${text}"`);
+    try {
+      for await (const ev of askHost(text, HOUSEHOLD)) {
+        if (ev.type === 'start') {
+          conn.log.note('agent', 'in', 'agent/start', 'notification', ev, `Strands agent, model ${ev.model}`);
+        } else if (ev.type === 'tool') {
+          const meta = uiMetaOf(conn.tool(ev.name)?._meta);
+          setStatusLine(meta.invoking ?? 'Working on it...');
+          setBoardTool(ev.name);
+          conn.log.note('agent', 'in', 'agent/tool_call', 'request', ev, `Strands agent called ${ev.name}(${JSON.stringify(ev.input)})`);
+          await ensureBoard(ev.name).catch(() => {});
+          toFrame((f) => f.sendInput(ev.input));
+        } else if (ev.type === 'toolResult') {
+          conn.log.note('agent', 'in', 'agent/tool_result', ev.ok ? 'response' : 'error', ev, `${ev.name}: ${ev.view ? `view ${ev.view}` : ev.ok ? 'ok' : 'failed'}, ${ev.ms} ms`);
+          if (ev.structuredContent) {
+            const r = { content: [{ type: 'text', text: ev.speech ?? '' }], structuredContent: ev.structuredContent, _meta: ev.meta } as CallToolResult;
+            afterResult(r);
+            confirmFromAgent.current = !!pendingConfirm.current;
+            toFrame((f) => f.sendResult(r));
+            // a suspect's own recorded voice plays before the host adds anything
+            const clip = ev.structuredContent.audioUrl as string | undefined;
+            if (clip) { if (firstWordMs === null) firstWordMs = Math.round(performance.now() - t0); queue.push('', clip); }
+          }
+        } else if (ev.type === 'text') {
+          for (const line of splitter.push(ev.text)) sayLine(line);
+        } else if (ev.type === 'done') {
+          for (const line of splitter.flush()) sayLine(line);
+          conn.log.note('agent', 'in', 'agent/done', 'response', { ...ev, deviceFirstWordMs: firstWordMs },
+            `first word ${firstWordMs ?? '-'} ms on the device (agent ${ev.firstTextMs ?? '-'} ms), total ${ev.totalMs} ms, ${ev.toolCalls} tool call${ev.toolCalls === 1 ? '' : 's'}`);
+        } else if (ev.type === 'error') {
+          throw new Error(ev.message);
+        }
+      }
+    } catch (e) {
+      conn.log.note('agent', 'in', 'agent/error', 'error', { message: String(e) }, String((e as Error).message ?? e));
+      return false;
+    }
+    if (!queue.busy) { setStatus('idle'); setStatusLine(''); }
+    return true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conn, queue, ensureBoard, afterResult]);
+
   // ---------- utterances ----------
   const handleUtterance = useCallback(async (raw: string) => {
     const text = raw.trim();
@@ -179,17 +258,23 @@ export function App() {
     }
     switch (intent.kind) {
       case 'yes':
+        // the agent asked the question, so the agent hears the answer and keeps its conversation whole
+        if (pendingConfirm.current && confirmFromAgent.current && USE_AGENT) { pendingConfirm.current = null; confirmFromAgent.current = false; if (await runHost(text)) return; }
         if (pendingConfirm.current) { const p = pendingConfirm.current; pendingConfirm.current = null; await runTool('accuse', { ...p, confirmed: true }); return; }
         return void say('Okay. What would you like to do?');
       case 'no':
+        if (pendingConfirm.current && confirmFromAgent.current && USE_AGENT) { pendingConfirm.current = null; confirmFromAgent.current = false; if (await runHost(text)) return; }
         if (pendingConfirm.current) { pendingConfirm.current = null; return void say('No accusation made. Keep digging.'); }
         return void say('Okay.');
       case 'stop': stopSpeaking(); setStatus('idle'); setCaption(''); return;
       case 'help': return void say(HELP_TEXT);
-      case 'unknown': return void say(`Sorry, I did not catch that. ${HELP_TEXT}`);
+      case 'unknown':
+        // anything the instant router cannot place goes to the Strands house host; offline, a friendly reprompt
+        if (USE_AGENT && (await runHost(text))) return;
+        return void say(`Sorry, I did not catch that. ${HELP_TEXT}`);
       case 'tool': await runTool(intent.tool, intent.args); return;
     }
-  }, [answerElicit, runTool, say]);
+  }, [answerElicit, runTool, say, runHost]);
 
   const startListening = useCallback(() => {
     stopSpeaking();
@@ -221,10 +306,27 @@ export function App() {
       if (e.code === 'Space' && !typing) { e.preventDefault(); wake(); }
       if (e.key === '`' && !typing) setDrawer((d) => !d);
       if (e.key === 'Escape') { stopSpeaking(); listening.current?.cancel(); setStatus('idle'); }
+      if (scripted && !typing && (e.key === 'ArrowRight' || e.key === 'n')) { e.preventDefault(); void nextScriptLine(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [wake]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wake, scripted, scriptStep]);
+
+  /** Scripted demo: type the next line into the box like a person would, then say it. */
+  const nextScriptLine = async () => {
+    const line = DEMO_SCRIPT[scriptStep];
+    if (!line) return;
+    setScriptStep((n) => n + 1);
+    stopSpeaking();
+    for (let i = 1; i <= line.length; i++) {
+      setTyped(line.slice(0, i));
+      await new Promise((r) => setTimeout(r, 28));
+    }
+    await new Promise((r) => setTimeout(r, 250));
+    setTyped('');
+    void handleUtterance(line);
+  };
 
   const submitTyped = (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,6 +430,12 @@ export function App() {
             <button className="pill" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))} aria-label={`Switch the display to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? 'Dark' : 'Light'}</button>
             <button className="pill" onClick={() => setDrawer((d) => !d)} aria-pressed={drawer}>Developer</button>
           </div>
+          {scripted && (
+            <div className="script" aria-live="polite">
+              Demo {Math.min(scriptStep, DEMO_SCRIPT.length)}/{DEMO_SCRIPT.length}
+              {DEMO_SCRIPT[scriptStep] ? <> · next: <q>{DEMO_SCRIPT[scriptStep]}</q> (press →)</> : ' · done'}
+            </div>
+          )}
           <div className="fineprint">An independent test page that acts as a real MCP client. Not an Amazon product.</div>
         </div>
       </div>

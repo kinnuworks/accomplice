@@ -9,7 +9,7 @@ import {
   type CallToolResult, type ElicitRequest, type ElicitResult, type JSONRPCMessage, type ReadResourceResult, type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 
-export type Lane = 'mcp' | 'app';
+export type Lane = 'mcp' | 'app' | 'agent';
 export interface TrafficEntry {
   n: number;
   at: number;
@@ -18,6 +18,7 @@ export interface TrafficEntry {
   method: string;
   kind: 'request' | 'response' | 'notification' | 'error';
   message: JSONRPCMessage;
+  summary?: string;
 }
 
 type Listener = (e: TrafficEntry) => void;
@@ -29,6 +30,13 @@ export class TrafficLog {
   private n = 0;
 
   subscribe(fn: Listener) { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; }
+
+  /** A note that is not a JSON-RPC message, for example what the Strands agent did. */
+  note(lane: Lane, dir: 'out' | 'in', method: string, kind: TrafficEntry['kind'], data: Record<string, unknown>, summary?: string) {
+    const entry: TrafficEntry = { n: ++this.n, at: Date.now(), lane, dir, method, kind, message: data as unknown as JSONRPCMessage, summary };
+    this.entries = [...this.entries.slice(-299), entry];
+    for (const l of this.listeners) l(entry);
+  }
 
   record(lane: Lane, dir: 'out' | 'in', message: JSONRPCMessage) {
     const m = message as { id?: string | number; method?: string; error?: unknown };

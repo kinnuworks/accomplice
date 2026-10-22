@@ -23,6 +23,10 @@ const LABEL: Record<string, string> = {
   'tasks/result': 'task',
   'notifications/tasks/status': 'task',
   'notifications/progress': 'progress',
+  'host/turn': 'strands agent',
+  'agent/tool_call': 'strands agent',
+  'agent/tool_result': 'strands agent',
+  'agent/done': 'strands agent',
   'ui/initialize': 'app bridge',
   'ui/notifications/initialized': 'app bridge',
   'ui/notifications/tool-input': 'app bridge',
@@ -31,6 +35,7 @@ const LABEL: Record<string, string> = {
 };
 
 function summary(e: TrafficEntry): string {
+  if (e.summary) return e.summary;
   const m = e.message as any;
   if (e.kind === 'request' && e.method === 'tools/call') return `${m.params?.name}(${JSON.stringify(m.params?.arguments ?? {})})`;
   if (e.kind === 'request' && e.method === 'elicitation/create') return m.params?.message ?? '';
@@ -48,7 +53,7 @@ function summary(e: TrafficEntry): string {
 
 export function Drawer({ info, error, entries, onClose }: { info: ConnectionInfo | null; error: string | null; entries: TrafficEntry[]; onClose: () => void }) {
   const [open, setOpen] = useState<number | null>(null);
-  const [lane, setLane] = useState<'all' | 'mcp' | 'app'>('all');
+  const [lane, setLane] = useState<'all' | 'agent' | 'mcp' | 'app'>('all');
   const list = useRef<HTMLOListElement>(null);
   const shown = entries.filter((e) => lane === 'all' || e.lane === lane);
 
@@ -74,9 +79,9 @@ export function Drawer({ info, error, entries, onClose }: { info: ConnectionInfo
         <dt>Server can</dt><dd>{info ? Object.keys(info.capabilities).join(', ') : '...'}</dd>
       </dl>
       <div className="lanes" role="tablist">
-        {(['all', 'mcp', 'app'] as const).map((l) => (
+        {(['all', 'agent', 'mcp', 'app'] as const).map((l) => (
           <button key={l} role="tab" aria-selected={lane === l} className={`lane ${lane === l ? 'on' : ''}`} onClick={() => setLane(l)}>
-            {l === 'all' ? 'All' : l === 'mcp' ? 'Client ↔ server' : 'Host ↔ board'}
+            {l === 'all' ? 'All' : l === 'agent' ? 'Strands agent' : l === 'mcp' ? 'Client ↔ server' : 'Host ↔ board'}
           </button>
         ))}
       </div>
@@ -84,7 +89,7 @@ export function Drawer({ info, error, entries, onClose }: { info: ConnectionInfo
         {shown.map((e) => (
           <li key={e.n} className={`t ${e.kind} lane-${e.lane}`}>
             <button className="t-row" onClick={() => setOpen(open === e.n ? null : e.n)} aria-expanded={open === e.n}>
-              <span className="t-dir">{e.lane === 'mcp' ? (e.dir === 'out' ? '→ server' : '← server') : (e.dir === 'out' ? '→ board' : '← board')}</span>
+              <span className="t-dir">{e.lane === 'agent' ? (e.dir === 'out' ? '→ agent' : '← agent') : e.lane === 'mcp' ? (e.dir === 'out' ? '→ server' : '← server') : (e.dir === 'out' ? '→ board' : '← board')}</span>
               <span className="t-method">{e.method}</span>
               {LABEL[e.method] && <span className={`t-tag ${LABEL[e.method]!.replace(' ', '-')}`}>{LABEL[e.method]}</span>}
               <span className="t-kind">{e.kind}</span>

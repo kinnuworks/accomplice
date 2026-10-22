@@ -75,10 +75,30 @@ export function route(utterance: string, ctx: RouterContext = {}): Intent {
   if (/^(stop|quiet|shh+|be quiet|pause)$/.test(t)) return { kind: 'stop' };
   if (/^(help|what can i (say|do)|how do i play)\b/.test(t)) return { kind: 'help' };
 
+  // reflective or memory questions need judgement: leave them to the house host (the Strands agent)
+  if (/\b(are we sure|do you think|should we|what do you reckon|does that make sense|why would)\b|\bwhat (did )?(\w+ ){0,3}(said|say|told|tell (us|me))\b/.test(t)) {
+    return { kind: 'unknown', text };
+  }
+
   // start a case
   if (/\b(start|begin|new|open|play|set up|launch)\b.*\b(case|game|mystery|round)\b|^let'?s play\b|^(open|launch|start) accomplice\b/.test(t)) {
     const tone = /\b(cozy|cosy|family|kids?|gentle|light)\b/.test(t) ? 'cozy' : 'classic';
-    return { kind: 'tool', tool: 'start_case', args: { tone } };
+    const weekly = /\b(of the week|weekly)\b/.test(t);
+    return { kind: 'tool', tool: 'start_case', args: weekly ? { tone, weekly } : { tone } };
+  }
+
+  // cross-surface handoff: "continue on the TV", "put it on the telly"
+  if (/\b(on|to) (the |my |our )?(fire )?(tv|telly|television|big screen)\b|\bsend (it )?to (the )?tv\b|\blet everyone join\b/.test(t)) {
+    return { kind: 'tool', tool: 'send_to_tv', args: {} };
+  }
+
+  // context across sessions
+  if (/\b(finish|resume|continue|pick up|carry on)\b.*\b(case|game|mystery|where we left off|last night)\b|\bwhere we left off\b/.test(t)) {
+    const room = t.match(/\bcode ([a-z])\s?([a-z])\s?([a-z])\s?([a-z])\b/);
+    return { kind: 'tool', tool: 'resume_case', args: room ? { room: room.slice(1, 5).join('').toUpperCase() } : {} };
+  }
+  if (/\b(our|my) (detective )?(record|stats|score|career)\b|\bhow (are|am) (we|i) doing\b|\bhow many cases\b/.test(t)) {
+    return { kind: 'tool', tool: 'my_detective_record', args: {} };
   }
 
   // next round
@@ -155,4 +175,4 @@ function findSuspect(fragment: string, suspects: { id: string; name: string; rol
 }
 
 export const HELP_TEXT =
-  'You can say: start a new case, who are the suspects, ask the cook where she was at nine, examine the boot prints, next round, give me a hint, or I accuse the gardener.';
+  'You can say: start a new case, who are the suspects, ask the cook where she was at nine, examine the boot prints, give me a hint, I accuse the gardener, how are we doing, let’s finish last night’s case, or continue on the TV.';

@@ -74,19 +74,35 @@ await sayIt('I accuse the gardener with the candlestick');
 await page.getByRole('dialog').waitFor({ timeout: 15_000 });
 await shot('08-elicitation');
 await page.getByRole('dialog').getByRole('button', { name: 'Yes' }).click();
-await boardShows('You solved it');
-await shot('09-verdict');
+await boardShows('Continue on your Fire TV');
+await page.waitForTimeout(600); // let the stamp land
+await shot('09-verdict-stamp');
 await page.getByRole('button', { name: /Switch the display to light mode/ }).click();
 await shot('09b-verdict-light');
 await page.getByRole('button', { name: /Switch the display to dark mode/ }).click();
 
-// open one tool call in the developer drawer
-await page.locator('.t.request .t-method', { hasText: 'elicitation/create' }).first().click();
-await shot('10-drawer-elicitation');
+await sayIt('how are we doing?');
+await boardShows('Detective record');
+await shot('10-detective-record');
 
-// the same device with the drawer closed
-await page.setViewportSize({ width: 1280, height: 860 });
-await page.getByRole('button', { name: 'Developer', exact: true }).click();
-await shot('11-no-drawer');
+await sayIt('continue on the TV');
+await boardShows('enter this code');
+await shot('11-continue-on-tv');
+
+// open the elicitation in the developer drawer
+await page.locator('.t.request .t-method', { hasText: 'elicitation/create' }).first().click();
+await shot('12-drawer-elicitation');
+
+// context across sessions: start a case, ask a question, close the page, come back later
+await sayIt('start a cozy case');
+await boardShows('Birthday Cake');
+await sayIt('ask Pip where he was at three');
+await boardShows('kite');
+await page.setViewportSize({ width: 1600, height: 1000 });
+await page.goto(`${base}?mute=1&drawer=0&household=${household}`);
+await page.getByText(/add-on connected/).waitFor({ timeout: 15_000 });
+await sayIt("let's finish last night's case");
+await boardShows('Welcome back');
+await shot('13-resume-next-day');
 
 await browser.close();

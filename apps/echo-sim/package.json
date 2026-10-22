@@ -9,7 +9,8 @@
     "preview": "vite preview --port 5175",
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types test/*.test.ts",
-    "screenshot": "node screenshots/take.mjs"
+    "screenshot": "node screenshots/take.mjs",
+    "demo": "node screenshots/demo.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "1.7.5",

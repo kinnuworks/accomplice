@@ -147,6 +147,8 @@ export function createMcpHandler(game: GameApiSource | RoomGameApi, options: Mcp
         const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl, records, updateRecord, narrate: options.narrate });
         const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
+          // Plain JSON replies instead of SSE when a proxy cannot stream (Cloudflare quick tunnels).
+          enableJsonResponse: !!process.env.TUNNEL || process.env.MCP_JSON_RESPONSE === 'on',
           onsessioninitialized: (id) => { sessions.set(id, { transport, server, lastSeen: Date.now() }); },
           onsessionclosed: (id) => { sessions.delete(id); },
         });

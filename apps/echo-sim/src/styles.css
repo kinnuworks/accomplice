@@ -160,6 +160,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outl
 .t-tag { grid-area: tag; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); color: var(--muted); align-self: center; }
 .t-tag.elicitation { background: rgba(224, 178, 91, 0.2); color: #f3cf86; }
 .t-tag.tool-call { background: rgba(25, 211, 255, 0.15); color: #9fe8ff; }
+.t-tag.strands-agent { background: rgba(255, 153, 0, 0.18); color: #ffc46b; }
 .t-tag.app-bridge { background: rgba(170, 120, 255, 0.18); color: #d4bcff; }
 .t-tag.task, .t-tag.progress { background: rgba(120, 220, 160, 0.15); color: #a6ecc3; }
 .t-kind { grid-area: kind; color: #6f6878; font-size: 11px; }
@@ -172,3 +173,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outl
   .drawer { border-left: 0; border-top: 1px solid var(--line); }
   .control-row { flex-wrap: wrap; }
 }
+
+.script { font-size: 14px; color: var(--muted); }
+.script q { color: var(--text); }
