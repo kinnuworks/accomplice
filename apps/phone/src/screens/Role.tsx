@@ -15,6 +15,8 @@ export function RolePeek({ startOpen = false, compact = false }: { startOpen?: b
   const { you, room, speakSecret } = useGame();
   const [open, setOpen] = useState(startOpen);
   const [lie, setLie] = useState(0);
+  // While a finger is down we are in "hold to peek"; otherwise an open card replaces the envelope.
+  const [pressing, setPressing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const envRef = useRef<HTMLButtonElement>(null);
   const viaClick = useRef(false);
@@ -76,6 +78,19 @@ export function RolePeek({ startOpen = false, compact = false }: { startOpen?: b
           aria-controls="role-card"
           aria-describedby="peek-help"
           {...press}
+          onPointerDown={(e) => {
+            setPressing(true);
+            press.onPointerDown(e);
+          }}
+          onPointerUp={() => {
+            setPressing(false);
+            press.onPointerUp();
+          }}
+          onPointerCancel={() => {
+            setPressing(false);
+            press.onPointerCancel();
+          }}
+          hidden={open && !pressing ? true : undefined}
           onKeyDown={() => (viaClick.current = true)}
           onClick={(e) => {
             if (e.detail === 0) viaClick.current = true; // keyboard or assistive tech

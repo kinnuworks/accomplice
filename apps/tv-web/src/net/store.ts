@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { ClientToServer, ServerToClient, SfxName } from '@accomplice/protocol';
-import type { BoardClue, Line, Proposal, TvEvent, TvRoomState, TvUtterance, VerdictEvent } from './types';
+import { tidyName, type BoardClue, type Line, type Proposal, type TvEvent, type TvRoomState, type TvUtterance, type VerdictEvent } from './types';
 
 export interface Link {
   send(msg: ClientToServer): void;
@@ -69,14 +69,14 @@ export const sfxQueue: SfxName[] = [];
 // Streamed answers arrive several times with the same id; queue each new part exactly once.
 const queuedParts = new Map<string, Set<string>>();
 function queueUtterance(u: TvUtterance): void {
-  const base = { speaker: u.speaker, speakerName: u.speakerName, askedBy: u.askedBy, question: u.question, narrator: u.speaker === 'narrator', utteranceId: u.id, filler: u.filler };
+  const base = { speaker: u.speaker, speakerName: tidyName(u.speakerName), askedBy: u.askedBy, question: u.question, narrator: u.speaker === 'narrator', utteranceId: u.id, filler: u.filler, queuedAt: Date.now() };
   let seen = queuedParts.get(u.id);
   if (!seen) { seen = new Set(); queuedParts.set(u.id, seen); if (queuedParts.size > 200) queuedParts.delete(queuedParts.keys().next().value!); }
   if (u.parts?.length) {
     u.parts.forEach((p, i) => {
       if (seen!.has(p.id)) return;
       seen!.add(p.id);
-      lineQueue.push({ ...base, key: `${u.id}:${p.id}`, text: p.text, audioUrl: p.audioUrl, marks: p.marks, chunks: p.captionChunks, final: u.partial === false && i === u.parts!.length - 1 });
+      lineQueue.push({ ...base, key: `${u.id}:${p.id}`, text: tidyName(p.text), audioUrl: p.audioUrl, marks: p.marks, chunks: p.captionChunks, final: u.partial === false && i === u.parts!.length - 1 });
     });
     if (u.partial === false && !lineQueue.some((l) => l.utteranceId === u.id && l.final)) {
       const last = [...lineQueue].reverse().find((l) => l.utteranceId === u.id);
@@ -86,14 +86,36 @@ function queueUtterance(u: TvUtterance): void {
   }
   if (seen.has('whole')) return;
   seen.add('whole');
-  lineQueue.push({ ...base, key: u.id, text: u.text, audioUrl: u.audioUrl, marks: u.marks, chunks: u.captionChunks, final: true });
+  lineQueue.push({ ...base, key: u.id, text: tidyName(u.text), audioUrl: u.audioUrl, marks: u.marks, chunks: u.captionChunks, final: true });
+}
+
+// One spelling of every name everywhere ("Mrs Pargeter", never "Mrs. Pargeter").
+const tidyCache = new WeakMap<object, unknown>();
+function tidyRoom(room: TvRoomState): TvRoomState {
+  const c = room.case;
+  const card = <T extends { title: string; text: string; short?: string }>(x: T): T => ({ ...x, title: tidyName(x.title), text: tidyName(x.text), short: x.short ? tidyName(x.short) : x.short });
+  let tc = c;
+  if (c) {
+    tc = tidyCache.get(c) as TvRoomState['case'];
+    if (!tc) {
+      tc = { ...c, victim: { ...c.victim, name: tidyName(c.victim.name) }, intro: tidyName(c.intro), briefing: c.briefing?.map(tidyName), clues: c.clues?.map(card),
+        suspects: c.suspects.map((s) => ({ ...s, name: tidyName(s.name), motive: tidyName(s.motive), shortName: s.shortName ? tidyName(s.shortName) : s.shortName })) };
+      tidyCache.set(c, tc);
+    }
+  }
+  const rv = room.reveal;
+  return {
+    ...room, case: tc,
+    board: { ...room.board, cards: room.board.cards?.map(card) },
+    reveal: rv ? { ...rv, accompliceLine: rv.accompliceLine ? tidyName(rv.accompliceLine) : rv.accompliceLine, steps: rv.steps.map((st) => ({ ...st, says: tidyName(st.says), therefore: tidyName(st.therefore) })) } : rv,
+  };
 }
 
 let announceN = 0;
 export function receive(msg: ServerToClient): void {
   switch (msg.t) {
     case 'room:state': {
-      const room = msg.state as TvRoomState;
+      const room = tidyRoom(msg.state as TvRoomState);
       setState((s) => ({ room, code: room.code, stage: 'game', verdict: room.phase === s.room?.phase ? s.verdict : null }));
       break;
     }
@@ -104,7 +126,7 @@ export function receive(msg: ServerToClient): void {
       queueUtterance(msg.u as TvUtterance);
       break;
     case 'announce':
-      lineQueue.push({ key: msg.id ?? `a${announceN++}`, speaker: 'narrator', speakerName: 'Narrator', text: msg.text, audioUrl: msg.audioUrl, marks: msg.marks, chunks: msg.captionChunks, narrator: true });
+      lineQueue.push({ key: msg.id ?? `a${announceN++}`, speaker: 'narrator', speakerName: 'Narrator', text: tidyName(msg.text), audioUrl: msg.audioUrl, marks: msg.marks, chunks: msg.captionChunks, narrator: true, queuedAt: Date.now() });
       break;
     case 'verdict':
       setState((s) => ({

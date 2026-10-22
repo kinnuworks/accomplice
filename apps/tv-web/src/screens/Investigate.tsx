@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEventFlag } from '../components/useEventFlag';
 import type { Player, TheoryVerdict } from '@accomplice/protocol';
 import { Avatar } from '../art/Avatar';
 import { FloorPlan, type PlanToken } from '../art/FloorPlan';
 import { Portrait, suspectColor } from '../art/Portrait';
 import { audio } from '../audio/audio';
 import { ClueCard, KIND_LABEL } from '../components/ClueCard';
-import { Dialog } from '../components/Dialog';
+import { Confirm, Dialog } from '../components/Dialog';
 import { Hints } from '../components/Hints';
 import { KindIcon } from '../components/Ornament';
 import { RoundPips } from '../components/RoundPips';
@@ -14,7 +15,7 @@ import { CaptionPanel } from '../components/Captions';
 import { SCENE } from '../env';
 import { focus, useBack } from '../focus/focus';
 import { clueById, send, toast, useTv, type TvState } from '../net/store';
-import { shortName, type BoardClue, type Proposal, type TvCase } from '../net/types';
+import { shortName, stripName, type BoardClue, type Proposal, type TvCase } from '../net/types';
 import { crimeLabel } from './Briefing';
 
 // Board geometry: strict 3x2 grid with 24 px gutters (board-local px)
@@ -59,22 +60,9 @@ export function Investigate() {
   const [checking, setChecking] = useState(false);
   const [dismissedAt, setDismissedAt] = useState(0);
   const [slot, setSlot] = useState(c.crime.slot);
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    if (event?.kind !== 'blackout' || Date.now() - event.at > 4000) return;
-    setDark(true);
-    const t = setTimeout(() => setDark(false), 3400);
-    return () => clearTimeout(t);
-  }, [event?.at, event?.kind]);
+  const dark = !!useEventFlag('blackout', 3400);
   const smudged = room.board.smudged ?? [];
-  const [objection, setObjection] = useState(false);
-  useEffect(() => {
-    if (event?.kind !== 'objection' || Date.now() - event.at > 3000) return;
-    setObjection(true);
-    audio.play('stamp');
-    const t = setTimeout(() => setObjection(false), 2600);
-    return () => clearTimeout(t);
-  }, [event?.at, event?.kind]);
+  const objection = !!useEventFlag('objection', 2600, () => audio.play('stamp'));
   const hunch = hunchMsg && Date.now() - hunchMsg.at < 20000 ? hunchMsg : room.hunch ? { ...room.hunch, at: Date.now() } : null;
   const [, tick] = useState(0);
   useEffect(() => {
@@ -89,6 +77,16 @@ export function Investigate() {
 
   useEffect(() => { if (SCENE === 'link' && revealed[0]) setTimeout(() => focus.focusById(`clue-${revealed[0].id}`), 120); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (verdict) setChecking(false); }, [verdict]);
+  // a new round closes anything left open from the last one
+  const firstRound = useRef(room.round);
+  useEffect(() => {
+    if (room.round === firstRound.current) return;
+    firstRound.current = room.round;
+    setDismissedAt(Date.now()); setMenuFor(null); setProving(false); setChecking(false); setLinkFrom(null); setDossier(null);
+  }, [room.round]);
+  const [moveOn, setMoveOn] = useState(false);
+  const allAsked = players.length > 0 && players.every((p) => p.questionsLeft === 0 || !p.connected);
+  const nextLabel = room.round >= 3 ? 'Time to accuse' : `Move on to round ${room.round + 1}`;
 
   const speakingLine = now && !now.line.narrator && c.suspects.some((s) => s.id === now.line.speaker) ? now : null;
   const speakingId = speakingLine?.line.speaker ?? room.speaking;
@@ -142,11 +140,11 @@ export function Investigate() {
   const detail = focusedClue ? clueById(room, focusedClue) : undefined;
 
   return (
-    <main className={`screen investigate-screen ${spotSuspect ? 'is-speaking' : ''} ${objection ? 'is-shaking' : ''} ${linkFrom ? 'is-linking' : ''}`}>
+    <main className={`screen investigate-screen ${room.emergency && room.emergency.stage === 'vote' ? 'has-emergency' : ''} ${showVerdict || checking ? 'is-verdict' : ''} ${spotSuspect ? 'is-speaking' : ''} ${objection ? 'is-shaking' : ''} ${linkFrom ? 'is-linking' : ''}`}>
       <header className="inv-head">
         <div className="inv-case">
-          <p className="eyebrow">{c.place.split(',')[0]}</p>
-          <h1 className="inv-title">{c.title}</h1>
+          {c.title.length <= 40 && <p className="eyebrow">{c.place.split(',')[0]}</p>}
+          <h1 className={`inv-title ${c.title.length > 32 ? 'is-long' : ''}`}>{c.title}</h1>
         </div>
         <RoundPips round={room.round} />
         <div className="inv-asking" aria-live="polite">
@@ -158,13 +156,12 @@ export function Investigate() {
           <div className="inv-players">
             {players.map((p) => (
               <div className={`inv-player ${askingPlayer?.id === p.id ? 'is-asking' : ''}`} key={p.id} aria-label={`${p.name}: ${p.questionsLeft} questions left`}>
-                <Avatar player={p} size={46} />
+                <Avatar player={p} size={40} />
                 <span className={`q-left ${p.questionsLeft ? '' : 'is-out'}`}>{p.questionsLeft} left</span>
               </div>
             ))}
             {!!room.audience?.length && (
               <div className="inv-audience" aria-label={`${room.audience.length} watching`}>
-                <span className="aud-stack" aria-hidden="true">{room.audience.slice(0, 3).map((a) => <i key={a.id}>{a.name[0]}</i>)}</span>
                 <span className="q-left">+{room.audience.length} watching</span>
               </div>
             )}
@@ -189,6 +186,8 @@ export function Investigate() {
               <g key={`${a}-${b}`} className={`string ${hot ? 'is-hot' : ''}`}>
                 <path d={d} className="string-shadow" />
                 <path d={d} className="string-line" pathLength={1} />
+                <circle cx={pinOf(ia).x} cy={pinOf(ia).y} r="9" className="string-knot" />
+                <circle cx={pinOf(ib).x} cy={pinOf(ib).y} r="9" className="string-knot" />
               </g>
             );
           })}
@@ -226,7 +225,7 @@ export function Investigate() {
           <div className="clue-detail" key={detail.id}>
             <p className="detail-kind"><KindIcon kind={detail.kind} />{KIND_LABEL[detail.kind]} · round {detail.round}</p>
             <h2 className="detail-title">{detail.title}</h2>
-            <p className="detail-text">{smudged.includes(detail.id) ? 'Someone spilled ink all over this one. It dries out next round.' : detail.text}</p>
+            <p className={`detail-text ${detail.text.length > 260 ? 'is-xlong' : detail.text.length > 190 ? 'is-long' : ''}`}>{smudged.includes(detail.id) ? 'Someone spilled ink all over this one. It dries out next round.' : detail.text}</p>
             <p className="detail-status">
               {linkFrom ? (linkFrom === detail.id ? 'Press OK to put the string away.' : 'Press OK to tie the string here.')
                 : pinned.includes(detail.id) ? `Pinned${linkCount(detail.id) ? `, tied to ${linkCount(detail.id)}` : ''}. Press OK for string or unpin.` : 'Press OK to pin it to your theory.'}
@@ -268,7 +267,7 @@ export function Investigate() {
         {c.suspects.map((s) => (
           <button key={s.id} className={`strip-card ${speakingId === s.id ? 'is-speaking' : ''}`} data-nav aria-label={`${s.name}, ${s.role}.${speakingId === s.id ? ' Speaking now.' : ''} Open their file.`} onClick={() => setDossier(s.id)}>
             <Portrait suspect={s} className="portrait-strip" />
-            <span className="strip-name">{shortName(s)}</span>
+            <span className="strip-name">{stripName(s)}</span>
             <span className="strip-role">{s.role}</span>
           </button>
         ))}
@@ -283,7 +282,7 @@ export function Investigate() {
       {hunch && (
         <div className="hunch-chip" role="status" aria-label={`Lying or truthful? ${hunch.lying} say lying, ${hunch.truth} say truthful`}>
           <span className="hunch-q">Lying or truthful?</span>
-          <span className="hunch-bar"><i className="h-lie" style={{ flexGrow: hunch.lying || 0.001 }} /><i className="h-true" style={{ flexGrow: hunch.truth || 0.001 }} /></span>
+          <span className={`hunch-bar ${hunch.lying + hunch.truth ? '' : 'is-empty'}`}><i className="h-lie" style={{ flexGrow: hunch.lying || 0.001 }} /><i className="h-true" style={{ flexGrow: hunch.truth || 0.001 }} /></span>
           <span className="hunch-n"><b>✕ {hunch.lying}</b> lying · <b>✓ {hunch.truth}</b> truthful</span>
         </div>
       )}
@@ -291,6 +290,22 @@ export function Investigate() {
       {dark && <div className="blackout-fx" role="status" aria-label={event?.text ?? 'The lights went out'}><p>{event?.text}</p></div>}
       {proposal && !showVerdict && <ProposalCard p={proposal} c={c} players={players} />}
 
+      {allAsked && !spotSuspect && !showVerdict && (
+        <div className="round-cta" role="status">
+          <p>Everyone has asked their questions.</p>
+          <button className="btn btn-primary" data-nav onClick={() => setMoveOn(true)}>{nextLabel}</button>
+        </div>
+      )}
+      {moveOn && (
+        <Confirm
+          title={room.round >= 3 ? 'Time to accuse?' : `Move on to round ${room.round + 1}?`}
+          body={room.round >= 3 ? 'No more questions. Everyone votes in secret on their phone.' : 'New clues go on the board. Any questions not asked yet are lost.'}
+          yes={room.round >= 3 ? 'Start the vote' : 'Next round'}
+          no="Not yet"
+          onYes={() => { setMoveOn(false); send({ t: 'tv:next' }); }}
+          onNo={() => setMoveOn(false)}
+        />
+      )}
       {menuFor && (
         <Dialog title={clueById(room, menuFor)?.title} onClose={() => setMenuFor(null)} className="dialog-menu">
           <div className="dialog-actions column">
@@ -339,7 +354,7 @@ function Emergency({ e, c, players }: { e: NonNullable<import('../net/types').Tv
           return (
             <figure key={s.id} className={`em-card ${n && n === Math.max(...Object.values(e.votes)) ? 'is-leading' : ''}`}>
               <Portrait suspect={s} />
-              <figcaption><b>{shortName(s).replace(/^Colonel\s+/, 'Col. ')}</b><span className="em-count">{n} vote{n === 1 ? '' : 's'}</span></figcaption>
+              <figcaption><b>{stripName(s)}</b><span className="em-count">{n} vote{n === 1 ? '' : 's'}</span></figcaption>
               <span className="em-bar" aria-hidden="true"><i style={{ transform: `scaleX(${total ? n / total : 0})` }} /></span>
             </figure>
           );

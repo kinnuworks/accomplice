@@ -264,7 +264,11 @@ export function Audience() {
     <div className="screen">
       <p className="eyebrow">Audience seat</p>
       <ScreenHeading>You&rsquo;re in the audience</ScreenHeading>
-      <p className="lede">The table is full, but the fun isn&rsquo;t. Follow along, read the board, and call out the liars.</p>
+      <p className="lede">
+        {room.phase === 'lobby'
+          ? 'The table is full, so you\u2019re in the audience. You can vote on hunches and read the board. The game starts when the host is ready.'
+          : 'The table is full, but the fun isn\u2019t. Follow along, read the board, and call out the liars.'}
+      </p>
       <div className="seg seg--tabs" role="group" aria-label="View">
         <button type="button" className="btn btn--ghost grow" aria-pressed={tab === 'watch'} onClick={() => setTab('watch')}>
           Watch

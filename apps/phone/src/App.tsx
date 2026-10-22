@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type React from 'react';
-import { ConnectionBanner, EarbudDialog, Icon, ScreenHeading, SettingsDialog, Toast, avatarLabel } from './components';
+import { ConnectionBanner, EarbudDialog, Icon, ScreenHeading, SettingsDialog, Toast, PlayerAvatar } from './components';
 import { LiveRegions } from './announce';
 import { GameProvider, useGame } from './game';
 import { demoParams } from './demo';
@@ -57,7 +57,7 @@ function Shell() {
     screen = <Joining />;
   } else {
     key = g.room.phase;
-    const watching = g.you.audience && ['briefing', 'tutorial', 'investigate', 'accuse'].includes(g.room.phase);
+    const watching = g.you.audience && ['lobby', 'briefing', 'tutorial', 'investigate', 'accuse'].includes(g.room.phase);
     if (watching) {
       key = 'audience';
       screen = <Audience />;
@@ -100,9 +100,7 @@ function Shell() {
         )}
         {g.me && (
           <p className="topbar__me">
-            <span role="img" aria-label={avatarLabel(g.me.avatar)}>
-              {g.me.avatar}
-            </span>
+            <PlayerAvatar avatar={g.me.avatar} seat={g.me.seat} name={g.me.name} size={28} labelled />
             <span className="topbar__name">{g.me.name}</span>
           </p>
         )}

@@ -22,7 +22,7 @@ export function Accuse() {
         <p className="eyebrow">The moment of truth</p>
         <h1 className="display-title huge">Who did it?</h1>
         <Flourish />
-        <p className="accuse-sub">Vote in secret on your phone. Name the culprit, and how they did it.{c.tone === 'classic' ? ' If you think someone at this table helped them, say so.' : ''}</p>
+        <p className="accuse-sub">Vote in secret on your phone. Name the culprit, and how they did it.{room.players.length >= 4 ? ' If you think someone at this table helped them, say so.' : ''}</p>
       </header>
 
       <div className="accuse-lineup">

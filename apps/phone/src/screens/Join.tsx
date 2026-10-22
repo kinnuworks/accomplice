@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type React from 'react';
-import { AVATARS, ScreenHeading } from '../components';
+import { AVATARS, PlayerAvatar, ScreenHeading } from '../components';
 import { useGame } from '../game';
 import { unlockAudio } from '../feedback';
 
@@ -15,7 +15,7 @@ export function Join() {
   })();
   const [code, setCode] = useState(roomCode);
   const [name, setName] = useState(saved?.name ?? '');
-  const [avatar, setAvatar] = useState(saved?.avatar ?? AVATARS[0].id);
+  const [avatar, setAvatar] = useState(saved && AVATARS.some((a) => a.id === saved.avatar) ? saved.avatar : AVATARS[0].id);
   const [errors, setErrors] = useState<{ code?: string; name?: string }>({});
   const codeFromLink = roomCode.length === 4;
 
@@ -100,9 +100,7 @@ export function Join() {
             {AVATARS.map((a) => (
               <label key={a.id} className="avatar-opt">
                 <input type="radio" name="avatar" value={a.id} checked={avatar === a.id} onChange={() => setAvatar(a.id)} />
-                <span className="avatar-opt__face" aria-hidden="true">
-                  {a.id}
-                </span>
+                <PlayerAvatar avatar={a.id} seat={AVATARS.indexOf(a)} size={44} />
                 <span className="avatar-opt__label">
                   <span className="sr-only">Calling card: </span>
                   {a.label}

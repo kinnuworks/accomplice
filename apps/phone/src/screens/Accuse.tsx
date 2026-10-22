@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type React from 'react';
-import { Icon, Portrait, ScreenHeading, avatarLabel, portraitAlt } from '../components';
+import { Icon, PlayerAvatar, Portrait, ScreenHeading, portraitAlt } from '../components';
 import { useGame } from '../game';
 import { announce } from '../announce';
 import { cue } from '../feedback';
@@ -194,9 +194,7 @@ export function Accuse({ demoAt }: { demoAt?: string }) {
                   <input type="radio" name="accomplice" value={p.id} checked={accomplice === p.id} onChange={() => setAccomplice(p.id)} />
                   <span className="choice__body">
                     <span className="choice__title">
-                      <span role="img" aria-label={avatarLabel(p.avatar)}>
-                        {p.avatar}
-                      </span>{' '}
+                      <PlayerAvatar avatar={p.avatar} seat={p.seat} name={p.name} size={28} />{' '}
                       {p.name}
                     </span>
                   </span>

@@ -5,12 +5,13 @@ export interface Prefs {
   vibration: boolean;
   speakReplies: boolean; // read suspect replies aloud on this phone too
   textSize: 100 | 125 | 150;
+  quietHeartbeat: boolean; // accomplice: a very quiet heartbeat sound instead of only vibration
   highContrast: boolean;
   reduceMotion: boolean;
 }
 
 const PREFS_KEY = 'accomplice:prefs';
-const defaults: Prefs = { sounds: true, vibration: true, speakReplies: false, textSize: 100, highContrast: false, reduceMotion: false };
+const defaults: Prefs = { sounds: true, vibration: true, speakReplies: false, textSize: 100, quietHeartbeat: false, highContrast: false, reduceMotion: false };
 
 export function loadPrefs(): Prefs {
   try {
@@ -157,8 +158,30 @@ export const cue = {
     tone([70, 55], 0.18, 0.12, 'sine');
     buzz(120);
   },
-  heartbeat() {
+  /** Vibrates; with `quiet`, also plays two soft low double-thumps (-24 dB) for earbud or screen reader users. */
+  heartbeat(quiet = false) {
     buzz([80, 120, 80, 600, 80, 120, 80, 600]);
+    if (!quiet) return;
+    const c = audioCtx();
+    if (!c || c.state !== 'running') return;
+    const gain = Math.pow(10, -24 / 20); // -24 dB
+    const thump = (at: number) => {
+      for (const f of [90, 180]) {
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(f, at);
+        o.frequency.exponentialRampToValueAtTime(f * 0.7, at + 0.06);
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(f === 90 ? gain : gain * 0.4, at + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.06);
+        o.connect(g).connect(c.destination);
+        o.start(at);
+        o.stop(at + 0.07);
+      }
+    };
+    const t = c.currentTime + 0.02;
+    for (const beat of [0, 0.2, 0.9, 1.1]) thump(t + beat);
   },
   nudge() {
     tone([660], 0.07, 0.04, 'triangle');

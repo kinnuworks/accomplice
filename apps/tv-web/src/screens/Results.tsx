@@ -96,7 +96,7 @@ export function Results({ onTitle }: { onTitle: () => void }) {
               <Avatar player={p} size={80} />
               <div className="ledger-who">
                 <b>{p.name}</b>
-                <span>{isAcc ? 'Smooth, but caught' : TITLES[Math.min(i, TITLES.length - 1)]}</span>
+                <span>{isAcc ? (rv?.accompliceCaught ? 'Smooth, but caught' : 'Got clean away') : TITLES[Math.min(i, TITLES.length - 1)]}</span>
               </div>
               {isAcc && <span className="tag tag-acc">Accomplice</span>}
               {p.id === detectorId && <span className="tag tag-hunch">Lie detector</span>}

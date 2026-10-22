@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Newspaper } from '@accomplice/protocol';
-import { Portrait, ScreenHeading, avatarLabel, portraitAlt } from '../components';
+import { PlayerAvatar, Portrait, ScreenHeading, portraitAlt } from '../components';
 import { useGame } from '../game';
 
 export function Reveal() {
@@ -102,9 +102,7 @@ export function Reveal() {
               <li key={id} className={id === you.playerId ? 'is-me' : undefined}>
                 <span className="ranking__name">
                   {p && (
-                    <span role="img" aria-label={avatarLabel(p.avatar)}>
-                      {p.avatar}
-                    </span>
+                    <PlayerAvatar avatar={p.avatar} seat={p.seat} name={p.name} size={28} />
                   )}{' '}
                   {p?.name ?? 'A guest'}
                   {id === you.playerId && ' (you)'}
@@ -126,7 +124,7 @@ export function Reveal() {
             {r.steps.map((s, i) => (
               <li key={i}>
                 <p className="proof__says">{s.says}</p>
-                <p className="proof__therefore">So: {s.therefore}</p>
+                <p className="proof__therefore">{/^so\b/i.test(s.therefore.trim()) ? s.therefore : `So, ${s.therefore.charAt(0).toLowerCase()}${s.therefore.slice(1)}`}</p>
               </li>
             ))}
           </ol>

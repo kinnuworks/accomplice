@@ -41,6 +41,7 @@ const shots = [
   ['28-smudge-a-clue', 'at=sabotage&as=accomplice'],
   ['29-hunch', 'at=hunch'],
   ['30-audience', 'at=audience'],
+  ['32-audience-lobby', 'at=audience-lobby'],
   ['31-heartbeat', 'at=heartbeat&as=accomplice', { wait: 900 }],
   ['16-accuse', 'at=accuse'],
   ['17-accuse-confirm', 'at=accuse-confirm'],
@@ -81,7 +82,7 @@ let totalViolations = 0;
 let overflowProblems = 0;
 const summary = [];
 
-for (const [name, query, opts = {}] of shots) {
+for (const [name, query, opts = {}] of process.env.FLOW_ONLY ? [] : shots) {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -93,6 +94,24 @@ for (const [name, query, opts = {}] of shots) {
   await page.waitForSelector('h1');
   await page.waitForTimeout(opts.wait ?? 700);
 
+  // Every suspect card must be tappable: nothing (like the talk dock) may sit on its centre.
+  const covered = await page.evaluate(() => {
+    const bad = [];
+    if (document.querySelector('dialog[open]')) return bad; // a modal is meant to cover the page
+    for (const el of document.querySelectorAll('label.suspect')) {
+      if (!el.offsetParent) continue;
+      el.scrollIntoView({ block: 'center' });
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (!hit || !el.contains(hit)) bad.push(el.textContent.trim().slice(0, 30));
+    }
+    window.scrollTo(0, 0);
+    return bad;
+  });
+  if (covered.length) {
+    overflowProblems++;
+    console.log(`  ${name}: suspect cards covered: ${covered.join(' | ')}`);
+  }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 1) overflowProblems++;
 
@@ -122,7 +141,8 @@ for (const [name, query, opts = {}] of shots) {
 }
 
 // A quick end-to-end run: join, start, peek, ask by voice (demo engine), read the answer.
-const flow = await context.newPage();
+const flowContext = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const flow = await flowContext.newPage();
 const flowErrors = [];
 flow.on('pageerror', (e) => flowErrors.push(e.message));
 try {
@@ -147,7 +167,7 @@ try {
   await flow.mouse.down();
   await flow.waitForTimeout(1600);
   await flow.mouse.up();
-  await flow.getByLabel(/^Your question for/).waitFor();
+  await flow.getByLabel(/^Your question for/).waitFor({ timeout: 10000 });
   await flow.getByRole('button', { name: /^Ask / }).click();
   await flow.locator('.reply__text').filter({ hasText: /nowhere near|hardly makes me|nothing to hide/ }).waitFor({ timeout: 6000 });
   // Test a theory from the Board tab
@@ -159,6 +179,7 @@ try {
   console.log('\nFlow: join -> lobby -> role -> investigate -> hold to talk -> answer -> test a theory -> verdict: OK');
 } catch (e) {
   console.log('\nFlow FAILED:', e.message);
+  await flow.screenshot({ path: path.join(outDir, 'flow-failure.png') }).catch(() => {});
   totalViolations++;
 }
 if (flowErrors.length) console.log('Flow page errors:', flowErrors);

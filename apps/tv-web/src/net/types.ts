@@ -37,6 +37,8 @@ export interface Line {
   /** True for the last part of a streamed answer (or a whole answer). */
   final?: boolean;
   filler?: boolean;
+  /** When it arrived (Date.now()); stale narration is dropped. */
+  queuedAt?: number;
   /** Caption screens from the server: each is up to two lines joined by \n. */
   chunks?: string[];
 }
@@ -55,9 +57,19 @@ export interface Proposal {
   at: number;
 }
 
+/** British style names: no full stop after Mr, Mrs, Ms, Dr, Col, St. */
+export function tidyName(n: string): string { return n.replace(/\b(Mrs|Mr|Ms|Dr|Col|St|Capt|Prof)\./g, '$1'); }
+
+/** Name for tight spaces: shortName, and if that is long, the title shortened ("Col Hargreaves"). */
+export function stripName(s: { name: string; shortName?: string }): string {
+  const n = shortName(s);
+  if (n.length <= 13) return n;
+  return n.replace(/^Colonel\s/, 'Col ').replace(/^Captain\s/, 'Capt ').replace(/^Professor\s/, 'Prof ').replace(/^Doctor\s/, 'Dr ');
+}
+
 /** Short display name: the case may give one, otherwise drop the honorific. */
 export function shortName(s: { name: string; shortName?: string }): string {
-  if (s.shortName) return s.shortName;
+  if (s.shortName) return tidyName(s.shortName);
   const parts = s.name.replace(/^(Dr|Mrs|Mr|Ms|Miss|Lady|Lord|Sir|Colonel|Captain|Uncle|Auntie|Madame|Professor)\.?\s+/, '').split(' ');
   return parts.length > 1 ? parts[parts.length - 1] : parts[0];
 }

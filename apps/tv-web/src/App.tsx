@@ -60,7 +60,7 @@ export function App() {
   const toasts = useTv((s) => s.toasts);
   const suspects = useTv((s) => s.room?.case?.suspects);
   const round = useTv((s) => s.room?.round ?? 0);
-  const [menu, setMenu] = useState<null | 'menu' | 'settings' | 'leave'>(SCENE === 'settings' ? 'settings' : null);
+  const [menu, setMenu] = useState<null | 'menu' | 'settings' | 'leave' | 'next'>(SCENE === 'settings' ? 'settings' : null);
   const settings = useSettings();
 
   useEffect(() => { if (suspects) preloadPortraits(suspects); }, [suspects]);
@@ -122,12 +122,21 @@ export function App() {
           <Dialog title={stage === 'game' ? 'Paused' : 'Menu'} onClose={() => setMenu(null)} className="dialog-pause">
             <div className="dialog-actions column">
               <button className="btn btn-primary" data-nav data-nav-autofocus onClick={() => setMenu(null)}>Keep playing</button>
+              {where === 'investigate' && <button className="btn btn-ghost" data-nav onClick={() => setMenu('next')}>{round >= 3 ? 'Time to accuse' : `Move on to round ${round + 1}`}</button>}
               <button className="btn btn-ghost" data-nav onClick={() => setMenu('settings')}>Settings</button>
               {stage === 'game' && <button className="btn btn-ghost" data-nav onClick={() => setMenu('leave')}>Leave this game</button>}
             </div>
           </Dialog>
         )}
         {menu === 'settings' && <SettingsDialog s={settings} onClose={() => setMenu(stage === 'game' ? 'menu' : null)} />}
+        {menu === 'next' && (
+          <Confirm
+            title={round >= 3 ? 'Time to accuse?' : `Move on to round ${round + 1}?`}
+            body={round >= 3 ? 'No more questions. Everyone votes in secret on their phone.' : 'New clues go on the board. Any questions not asked yet are lost.'}
+            yes={round >= 3 ? 'Start the vote' : 'Next round'} no="Not yet"
+            onYes={() => { setMenu(null); send({ t: 'tv:next' }); }} onNo={() => setMenu(null)}
+          />
+        )}
         {menu === 'leave' && (
           <Confirm title="Leave this game?" body="The case will close for everyone and the room code will stop working." yes="Leave the game" no="Keep playing" onYes={leave} onNo={() => setMenu(null)} />
         )}

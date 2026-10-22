@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import type { BoardClue } from '../net/types';
 import { KindIcon } from './Ornament';
 
@@ -33,10 +33,30 @@ interface Props {
 }
 
 export const ClueCard = memo(function ClueCard({ clue, pinned, linkSource, fresh, nav, autofocus, full, onClick, style, className = '', linkedCount = 0, smudged }: Props) {
+  // shrink to fit, never truncate: title 34 -> 28 px, text 30 -> 26 px, then drop the short line
+  const inner = useRef<HTMLSpanElement>(null);
+  const [lvl, setLvl] = useState(0);
+  const LEVELS = [[34, 30], [32, 28], [30, 27], [28, 26], [26, 26], [28, 26, 1]] as const;
+  const [fontsTick, setFontsTick] = useState(0);
+  useLayoutEffect(() => { setLvl(0); }, [clue.id, clue.title, clue.short, clue.text, full, fontsTick]);
+  // fonts arriving late change the measurements; refit once they are in
+  useLayoutEffect(() => {
+    let live = true;
+    document.fonts?.ready.then(() => { if (live) setFontsTick((n) => n + 1); });
+    const onLoad = () => setFontsTick((n) => n + 1);
+    document.fonts?.addEventListener?.('loadingdone', onLoad);
+    return () => { live = false; document.fonts?.removeEventListener?.('loadingdone', onLoad); };
+  }, []);
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el || lvl >= LEVELS.length - 1) return;
+    if (el.scrollHeight > el.clientHeight + 1) setLvl(lvl + 1);
+  });
+  const [ct, cb, noShort] = LEVELS[lvl] as readonly number[];
   const label = smudged ? `Clue, ${clue.kind}, ${clue.title}. Smudged: someone spilled ink on it.` : `Clue, ${clue.kind}, ${clue.title}. ${clue.text} ${pinned ? 'Pinned.' : 'Not pinned.'}${linkedCount ? ` Tied to ${linkedCount} other clue${linkedCount > 1 ? 's' : ''}.` : ''}`;
   return (
     <button
-      className={`clue-card kind-${clue.kind} ${clue.title.length > 17 ? 'long-title' : ''} ${smudged ? 'is-smudged' : ''} ${pinned ? 'is-pinned' : ''} ${linkSource ? 'is-source' : ''} ${fresh ? 'is-fresh' : ''} ${className}`}
+      className={`clue-card kind-${clue.kind} ${noShort && !full ? 'no-short' : ''} ${smudged ? 'is-smudged' : ''} ${pinned ? 'is-pinned' : ''} ${linkSource ? 'is-source' : ''} ${fresh ? 'is-fresh' : ''} ${className}`}
       style={{ ['--tilt' as string]: `${hashTilt(clue.id)}deg`, ...style }}
       data-nav={nav ? '' : undefined}
       data-nav-id={`clue-${clue.id}`}
@@ -47,7 +67,7 @@ export const ClueCard = memo(function ClueCard({ clue, pinned, linkSource, fresh
       onClick={onClick}
       tabIndex={nav ? 0 : -1}
     >
-      <span className="clue-inner">
+      <span className="clue-inner" ref={inner} style={{ ['--ct' as string]: `${ct}px`, ['--cb' as string]: `${cb}px` }}>
         <span className="clue-kind"><KindIcon kind={clue.kind} />{KIND_LABEL[clue.kind]}</span>
         {pinned && <span className="clue-pinned-tag" aria-hidden="true">Pinned{linkedCount ? ` +${linkedCount}` : ''}</span>}
         <span className="clue-title">{clue.title}</span>

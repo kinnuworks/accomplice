@@ -123,8 +123,11 @@ function Tabs({
           onKeyDown={(e) => onKey(e, i)}
         >
           {it.label}
-          {it.count !== undefined && <span className="tab__count">{it.count}</span>}
-          {it.badge && <span className="badge badge--new">{it.badge}</span>}
+          {it.badge ? (
+            <span className="badge badge--new">{it.badge}</span>
+          ) : (
+            it.count !== undefined && <span className="tab__count">{it.count}</span>
+          )}
         </button>
       ))}
     </div>

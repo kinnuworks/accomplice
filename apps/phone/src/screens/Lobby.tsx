@@ -1,5 +1,5 @@
 import type { Tone } from '@accomplice/protocol';
-import { ScreenHeading, avatarLabel } from '../components';
+import { PlayerAvatar, ScreenHeading } from '../components';
 import { useGame } from '../game';
 
 const TONES: { id: Tone; name: string; blurb: string }[] = [
@@ -29,9 +29,7 @@ export function Lobby() {
         <ul className="guest-list">
           {room.players.map((p) => (
             <li key={p.id} className={`guest${p.connected ? '' : ' guest--away'}`}>
-              <span className="guest__avatar" role="img" aria-label={avatarLabel(p.avatar)}>
-                {p.avatar}
-              </span>
+              <PlayerAvatar avatar={p.avatar} seat={p.seat} name={p.name} size={40} labelled />
               <span className="guest__name">
                 {p.name}
                 {p.id === you.playerId && <span className="sr-only"> (you)</span>}

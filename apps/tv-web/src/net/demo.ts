@@ -243,8 +243,10 @@ export function startDemo(useScene = true): Link {
         if (SCENE === 'smudge') later(200, () => emit({ t: 'event', kind: 'smudge', text: 'Someone smudged a clue!', clueId: D.cluesByRound[2][0] }));
         if (SCENE === 'hunch') later(150, () => { lineIdx = 2; say(2); later(400, () => emit({ t: 'hunch', utteranceId: 'u1', lying: 3, truth: 1 })); });
         break;
-      case 'investigate': case 'speaking': case 'asking': case 'objection': case 'chime': case 'link': case 'verdict': case 'verdict-proven': case 'verdict-out': case 'prove': case 'proposal':
+      case 'all-asked': case 'long': case 'investigate': case 'speaking': case 'asking': case 'objection': case 'chime': case 'link': case 'verdict': case 'verdict-proven': case 'verdict-out': case 'prove': case 'proposal':
         board();
+        if (SCENE === 'all-asked') { s.players.forEach((p) => (p.questionsLeft = 0)); push(); }
+        if (SCENE === 'long') { s.board.cards = (D.case.clues ?? []).map((x) => ({ ...x, title: `${x.title} and the matter of the missing gloves`, short: x.text })) as never; push(); }
         if (SCENE === 'speaking') later(300, () => { lineIdx = 2; say(2); });
         if (SCENE === 'asking') { s.queue = [{ playerId: s.players[2].id, suspectId: D.lines[2].suspect }]; push(); }
         if (SCENE === 'objection') later(300, () => { lineIdx = 2; say(2); later(900, () => emit({ t: 'event', kind: 'objection' as never, text: 'That is not what the pinned clue says.', suspectId: D.lines[2].suspect })); });

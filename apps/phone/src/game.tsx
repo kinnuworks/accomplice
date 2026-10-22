@@ -126,7 +126,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [you, setYou] = useState<YouState | null>(null);
   const [profile, setProfile] = useState<Profile | null>(() => {
-    if (demo) return demoParams().at === 'join' ? null : { name: 'Ada', avatar: '🕯️' };
+    if (demo) return demoParams().at === 'join' ? null : { name: 'Ada', avatar: 'owl' };
     const code = initialCode();
     // Coming back to a room you were already in (refresh, phone slept): rejoin quietly.
     return code && store.get<boolean>(`accomplice:joined:${code}`) ? store.get<Profile>('accomplice:profile') : null;
@@ -175,6 +175,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           const left = mine?.questionsLeft ?? 0;
           const qs = `${left} ${left === 1 ? 'question' : 'questions'} left`;
           const say: string[] = [];
+          if (prev && (prev.round !== next.round || prev.phase !== next.phase)) setVerdict(null); // old verdicts don't follow you into a new round
           if (prev) {
             const nameOf = (id: string) => (next.case?.suspects as SuspectX[] | undefined)?.find((s) => s.id === id)?.name ?? 'A suspect';
             if (next.phase !== prev.phase && next.phase !== 'investigate') {
@@ -228,9 +229,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         }
         case 'you:state': {
           const prev = youRef.current;
+          youRef.current = m.you; // two quick updates must not count the same clue twice
           const fresh = m.you.privateClues.filter((c) => !prev?.privateClues.some((p) => p.id === c.id));
+          const have = new Set(m.you.privateClues.map((c) => c.id));
           if (prev && fresh.length) {
-            setNewClueIds((ids) => [...ids, ...fresh.map((c) => c.id)]);
+            setNewClueIds((ids) => [...new Set([...ids, ...fresh.map((c) => c.id)])].filter((id) => have.has(id)));
             cue.clue();
             announce(
               fresh.length === 1 ? `New clue: ${clueShort(fresh[0])}.` : `${fresh.length} new clues on your phone.`,
@@ -348,7 +351,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           break;
         case 'haptic':
           if (youRef.current?.role === 'accomplice' && m.pattern === 'heartbeat') {
-            cue.heartbeat();
+            // Sound only for someone who is listening privately; never a live region.
+            cue.heartbeat(getPrefs().quietHeartbeat);
             setHeartbeat(Date.now());
           }
           break;
@@ -424,6 +428,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   );
   const answerEarbud = useCallback((ok: boolean) => {
     setEarbudOpen(false);
+    if (ok && !getPrefs().quietHeartbeat && youRef.current?.role === 'accomplice') {
+      // They have an earbud in: the heartbeat can be heard privately from now on.
+      const next = { ...getPrefs(), quietHeartbeat: true };
+      storePrefs(next);
+      setPrefsState(next);
+    }
     earbudResolve.current?.(ok);
     earbudResolve.current = null;
   }, []);

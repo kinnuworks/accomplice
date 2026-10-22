@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { Icon } from '../components';
 import { useGame } from '../game';
@@ -16,6 +16,39 @@ const PROBLEM_TEXT: Record<VoiceFailure, string> = {
   nodevice: 'No microphone found. Type your question instead.',
   failed: 'The mic did not start. Try again, or type your question.',
 };
+
+/**
+ * The dock is pinned to the bottom of the screen. This reserves the same amount of
+ * space at the end of the page, so nothing can ever be stuck underneath it. When the
+ * text is so large that the dock would take over the screen, it stops being pinned.
+ */
+function useDockSpace(): [(el: HTMLElement | null) => void, boolean] {
+  const [isStatic, setStatic] = useState(false);
+  const obs = useRef<ResizeObserver | null>(null);
+  const root = document.documentElement;
+  const ref = useCallback((el: HTMLElement | null) => {
+    obs.current?.disconnect();
+    if (!el) {
+      root.style.setProperty('--dock-h', '0px');
+      return;
+    }
+    const measure = () => {
+      const h = el.getBoundingClientRect().height;
+      const tooBig = h > window.innerHeight * 0.45;
+      setStatic(tooBig);
+      root.style.setProperty('--dock-h', tooBig || h === 0 ? '0px' : `${Math.ceil(h)}px`);
+    };
+    obs.current = new ResizeObserver(measure);
+    obs.current.observe(el);
+    measure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => () => {
+    obs.current?.disconnect();
+    root.style.setProperty('--dock-h', '0px');
+  }, [root]);
+  return [ref, isStatic];
+}
 
 export function TalkDock({
   suspect,
@@ -50,6 +83,7 @@ export function TalkDock({
   const stopAfterStart = useRef(false);
   const startedAt = useRef(0);
   const composeRef = useRef<HTMLTextAreaElement>(null);
+  const [dockRef, dockStatic] = useDockSpace();
 
   if (!voice.current) {
     voice.current = new VoiceCapture({ onText: (t) => setText(t), onLevel: setLevel }, { demo });
@@ -171,7 +205,7 @@ export function TalkDock({
   if (state === 'sent' && sentTo) {
     const speakingNow = room?.speaking === sentTo.id;
     return (
-      <div className="dock" aria-label="Your question" role="region">
+      <div className={`dock${dockStatic ? ' dock--static' : ''}`} ref={dockRef} aria-label="Your question" role="region">
         <p className="dock__status">
           <span className="dot dot--gold" aria-hidden="true" />
           {speakingNow
@@ -189,7 +223,7 @@ export function TalkDock({
 
   if (state === 'compose') {
     return (
-      <form className="dock dock--compose" onSubmit={submit} aria-label="Your question">
+      <form className={`dock dock--compose${dockStatic ? ' dock--static' : ''}`} ref={dockRef} onSubmit={submit} aria-label="Your question">
         {problem && via === 'typed' && (
           <p className="dock__problem" id="mic-problem">
             {PROBLEM_TEXT[problem]}
@@ -230,7 +264,7 @@ export function TalkDock({
   }
 
   return (
-    <div className="dock" role="region" aria-label="Ask out loud">
+    <div className={`dock${dockStatic ? ' dock--static' : ''}`} ref={dockRef} role="region" aria-label="Ask out loud">
       <div className={`transcript${listening ? ' is-live' : ''}`} aria-hidden={listening ? 'true' : undefined}>
         {listening ? (
           <p>
@@ -273,7 +307,7 @@ export function TalkDock({
           <span className="talk__icon">
             <Icon name={listening ? 'stop' : 'mic'} />
           </span>
-          <span className="talk__label">{listening ? 'Let go or tap to finish' : !suspect ? 'Pick a suspect first' : questionsLeft <= 0 ? 'No questions left' : `Hold to ask ${firstName}`}</span>
+          <span className="talk__label">{listening ? 'Let go or tap to finish' : !suspect ? 'Pick a suspect' : questionsLeft <= 0 ? 'No questions left' : `Hold to ask ${firstName}`}</span>
         </button>
         <button
           type="button"

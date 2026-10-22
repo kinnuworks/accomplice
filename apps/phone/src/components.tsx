@@ -3,17 +3,7 @@ import type React from 'react';
 import type { Clue } from '@accomplice/protocol';
 import { useGame } from './game';
 
-export const AVATARS = [
-  { id: '🕯️', label: 'Candle' },
-  { id: '🎩', label: 'Top hat' },
-  { id: '🔑', label: 'Old key' },
-  { id: '🌹', label: 'Rose' },
-  { id: '🫖', label: 'Teapot' },
-  { id: '🦉', label: 'Owl' },
-  { id: '🐈‍⬛', label: 'Black cat' },
-  { id: '🕰️', label: 'Mantel clock' },
-];
-export const avatarLabel = (id: string) => AVATARS.find((a) => a.id === id)?.label ?? 'Guest';
+export { AVATARS, avatarLabel, PlayerAvatar } from './avatar';
 
 const HUES = [18, 330, 200, 42, 280, 160];
 function hueFor(id: string) {
@@ -174,7 +164,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose(): vo
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
   }, [open]);
-  type BoolKey = 'sounds' | 'vibration' | 'speakReplies' | 'highContrast' | 'reduceMotion';
+  type BoolKey = 'sounds' | 'vibration' | 'speakReplies' | 'highContrast' | 'reduceMotion' | 'quietHeartbeat';
   const toggle = (k: BoolKey, label: string, hint: string) => (
     <div className="switch">
       <input
@@ -196,6 +186,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose(): vo
       <h2 id="settings-title">Settings</h2>
       {toggle('sounds', 'Sound cues', 'Little chimes when you start and stop talking, and when clues arrive.')}
       {toggle('vibration', 'Vibration', 'A buzz when the mic opens and closes. Not every phone can do this.')}
+      {toggle('quietHeartbeat', 'Private sound cues', 'Very quiet signals meant for one earbud. Turn on if you use a screen reader with headphones.')}
       {toggle('speakReplies', 'Read replies on my phone', 'Suspects also speak from your phone, handy with headphones.')}
       <fieldset className="field text-size">
         <legend>Text size</legend>

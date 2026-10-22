@@ -1,5 +1,5 @@
 // Cinematic briefing: one slide per narrator line (case.briefing, at most six). Slides follow the narrator
-// (announce ids briefing:0..n); OK skips ahead. The last slide ends on the line-up and "Begin round one".
+// (announce ids briefing:0..n); OK skips ahead. The last slide ends on the line-up and "Let's begin".
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FloorPlan } from '../art/FloorPlan';
 import { ArtImage, NightScene } from '../art/NightScene';
@@ -166,7 +166,7 @@ export function Briefing() {
           </div>
           {ready && (
             <button className="btn btn-primary btn-xl" data-nav data-nav-autofocus onClick={() => send({ t: 'tv:next' })}>
-              <span className="btn-ok" aria-hidden="true">OK</span> Begin round one
+              <span className="btn-ok" aria-hidden="true">OK</span> Let's begin
             </button>
           )}
         </section>

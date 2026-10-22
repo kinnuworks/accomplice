@@ -43,6 +43,7 @@ export type DemoAt =
   | 'hunch'
   | 'audience'
   | 'heartbeat'
+  | 'audience-lobby'
   | 'accuse'
   | 'accuse-confirm'
   | 'accuse-locked'
@@ -234,9 +235,9 @@ export function createDemo(h: TransportHandlers): Transport {
   let D: DemoData = fallback;
 
   const bots: Player[] = [
-    { id: 'p-marta', name: 'Marta', seat: 1, connected: true, avatar: '🌹', questionsLeft: 2 },
-    { id: 'p-theo', name: 'Theo', seat: 2, connected: true, avatar: '🎩', questionsLeft: 2 },
-    { id: 'p-priya', name: 'Priya', seat: 3, connected: false, avatar: '🔑', questionsLeft: 2 },
+    { id: 'p-marta', name: 'Marta', seat: 1, connected: true, avatar: 'fox', questionsLeft: 2 },
+    { id: 'p-theo', name: 'Theo', seat: 2, connected: true, avatar: 'hare', questionsLeft: 2 },
+    { id: 'p-priya', name: 'Priya', seat: 3, connected: false, avatar: 'badger', questionsLeft: 2 },
   ];
 
   const room: RoomState = {
@@ -397,6 +398,13 @@ export function createDemo(h: TransportHandlers): Transport {
         room.house = house;
         goto('tutorial', 0);
         break;
+      case 'audience-lobby':
+        you.audience = true;
+        room.audience = [{ id: ME, name, connected: true }];
+        room.players = room.players.filter((p) => p.id !== ME);
+        room.hostId = 'p-marta';
+        goto('lobby');
+        break;
       case 'audience':
         you.audience = true;
         room.audience = [{ id: ME, name, connected: true }];
@@ -463,7 +471,7 @@ export function createDemo(h: TransportHandlers): Transport {
   const handle = (msg: ClientToServer | { t: 'demo:next' } | { t: 'phone:propose'; culprit: string; item?: string } | { t: 'phone:voteProposal'; proposalId: string; agree: boolean }) => {
     switch (msg.t) {
       case 'phone:join': {
-        const avatar = msg.avatar ?? '🕯️';
+        const avatar = msg.avatar ?? 'owl';
         if (!joined) {
           joined = true;
           jump(msg.name, avatar);
