@@ -38,6 +38,8 @@ const START_STEPS = ['Setting the scene', 'Placing the suspects', 'Hiding the cl
 export interface RoomAdapterOptions {
   /** Join the room that is already running when a household has none. Default true. */
   joinRunningRoom?: boolean;
+  /** Where the game server serves art, joined with a suspect's portrait key. Default "/tv/art/". */
+  artBase?: string;
 }
 
 /** Returns a household lookup suitable for createMcpHandler. */
@@ -123,8 +125,10 @@ export function fromRoomApi(api: RoomGameApi, opts: RoomAdapterOptions = {}): (h
           const roomId = crimeSlot !== undefined ? s.claimedAlibi[crimeSlot] : undefined;
           const room = c?.rooms.find((r) => r.id === roomId)?.name;
           const time = c?.slots.find((x) => x.id === crimeSlot)?.label;
+          const portrait = c?.suspects.find((x) => x.id === s.id)?.portrait;
           return {
             id: s.id, name: s.name, role: s.role, motive: s.motive,
+            portraitUrl: portrait ? `${opts.artBase ?? '/tv/art/'}${portrait.replace(/^\/+/, '')}` : undefined,
             claimedAlibi: room && time ? `Says they were in the ${room.toLowerCase()} at ${time}.` : undefined,
           };
         });

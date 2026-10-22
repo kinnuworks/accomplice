@@ -18,6 +18,7 @@ interface Props {
   csp?: Csp;
   log: TrafficLog;
   toolName: string;
+  theme: 'dark' | 'light';
   onCallTool: (name: string, args: Record<string, unknown>) => Promise<CallToolResult>;
   onReadResource: (uri: string) => Promise<ReadResourceResult>;
 }
@@ -64,10 +65,10 @@ export const AppFrame = forwardRef<AppFrameHandle, Props>(function AppFrame(prop
       { serverTools: {}, serverResources: {}, logging: {} },
       {
         hostContext: {
-          theme: 'dark',
+          theme: props.theme,
           displayMode: 'fullscreen',
           availableDisplayModes: ['fullscreen'],
-          containerDimensions: { width: 1280, height: 720 },
+          containerDimensions: { width: 1280, height: 800 },
           locale: 'en-US',
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           platform: 'web',
@@ -97,6 +98,12 @@ export const AppFrame = forwardRef<AppFrameHandle, Props>(function AppFrame(prop
     // Rebuild only when the resource itself changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.html]);
+
+  // tell the board when the display switches between dark and light
+  useEffect(() => {
+    run(() => { void bridge.current?.sendHostContextChange({ theme: props.theme }); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.theme]);
 
   return (
     <iframe

@@ -1,0 +1,732 @@
+{
+  "generatedBy": "@accomplice/fairplay scripts/demo-fixture.ts",
+  "seed": 8,
+  "tone": "classic",
+  "difficulty": 2,
+  "report": {
+    "ok": true,
+    "keyClues": [
+      "r1b2",
+      "r1s0",
+      "r2s1",
+      "r3s0",
+      "r3s1",
+      "r3s2"
+    ],
+    "solvableByRound": 3
+  },
+  "publicCase": {
+    "id": "ashby-hall-classic-8",
+    "tone": "classic",
+    "title": "A Rather Final Dinner at Ashby Hall",
+    "place": "Ashby Hall, a creaking country house in the Cotswolds",
+    "dateLine": "A wet Saturday in November, 1932",
+    "intro": "Rain hammers the windows of Ashby Hall. The bridge is out, the telephone is dead, and the soup was only lukewarm. Then things got worse. Lady Constance Ashby was found in the Kitchen, quite dead, her teacup still perfectly level. It happened at 9:30 pm, give or take a biscuit. Five guests are still in the house. One of them did it, and every one of them has a story ready.",
+    "scene": "scenes/ashby-hall.webp",
+    "briefing": [
+      "Ashby Hall, November 1932. The bridge is out, the phone is dead, and the soup was lukewarm.",
+      "Lady Constance Ashby was found dead in the Kitchen at 9:30 pm.",
+      "Seven rooms, a few doors. Nobody walks through walls, not even the guilty.",
+      "Mrs Pargeter: secret recipes, secret resentments. Algy: charming, broke, and desperate.",
+      "Dr Bligh: steady pulse, shaky past. Colonel Hargreaves: loud stories, quiet debts.",
+      "Mysterio: now you see him."
+    ],
+    "victim": {
+      "name": "Lady Constance Ashby",
+      "description": "Matriarch of Ashby Hall. Collector of grudges and very small dogs."
+    },
+    "crime": {
+      "room": "kitchen",
+      "slot": 3,
+      "what": "was found dead"
+    },
+    "rooms": [
+      {
+        "id": "library",
+        "name": "Library",
+        "x": 0,
+        "y": 0,
+        "w": 5,
+        "h": 4,
+        "adjacent": [
+          "study",
+          "hall"
+        ]
+      },
+      {
+        "id": "study",
+        "name": "Study",
+        "x": 5,
+        "y": 0,
+        "w": 4,
+        "h": 4,
+        "adjacent": [
+          "library",
+          "conservatory"
+        ]
+      },
+      {
+        "id": "conservatory",
+        "name": "Conservatory",
+        "x": 9,
+        "y": 0,
+        "w": 7,
+        "h": 4,
+        "adjacent": [
+          "study",
+          "kitchen"
+        ]
+      },
+      {
+        "id": "hall",
+        "name": "Great Hall",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 5,
+        "adjacent": [
+          "library",
+          "dining"
+        ]
+      },
+      {
+        "id": "dining",
+        "name": "Dining Room",
+        "x": 6,
+        "y": 4,
+        "w": 5,
+        "h": 5,
+        "adjacent": [
+          "hall",
+          "kitchen"
+        ]
+      },
+      {
+        "id": "kitchen",
+        "name": "Kitchen",
+        "x": 11,
+        "y": 4,
+        "w": 5,
+        "h": 3,
+        "adjacent": [
+          "dining",
+          "pantry",
+          "conservatory"
+        ]
+      },
+      {
+        "id": "pantry",
+        "name": "Pantry",
+        "x": 11,
+        "y": 7,
+        "w": 5,
+        "h": 2,
+        "adjacent": [
+          "kitchen"
+        ]
+      }
+    ],
+    "slots": [
+      {
+        "id": 0,
+        "label": "8:00 pm"
+      },
+      {
+        "id": 1,
+        "label": "8:30 pm"
+      },
+      {
+        "id": 2,
+        "label": "9:00 pm"
+      },
+      {
+        "id": 3,
+        "label": "9:30 pm"
+      },
+      {
+        "id": 4,
+        "label": "10:00 pm"
+      }
+    ],
+    "suspects": [
+      {
+        "id": "cook",
+        "name": "Mrs. Dolly Pargeter",
+        "shortName": "Mrs Pargeter",
+        "role": "the cook",
+        "traits": [
+          "brisk",
+          "talks about food when nervous",
+          "suspicious of anyone thin"
+        ],
+        "voiceId": "Kajal",
+        "portrait": "portraits/cook.webp",
+        "motive": "Lady Constance was about to replace her with a fancy chef from Paris."
+      },
+      {
+        "id": "nephew",
+        "name": "Algernon Pike",
+        "shortName": "Algy",
+        "role": "the hard-up nephew",
+        "traits": [
+          "charming",
+          "sulky",
+          "borrows things"
+        ],
+        "voiceId": "Matthew",
+        "portrait": "portraits/nephew.webp",
+        "motive": "Lady Constance cut him out of the will last Tuesday."
+      },
+      {
+        "id": "doctor",
+        "name": "Dr. Harriet Bligh",
+        "shortName": "Dr Bligh",
+        "role": "the family doctor",
+        "traits": [
+          "precise",
+          "nervous laugh",
+          "over explains"
+        ],
+        "voiceId": "Ruth",
+        "portrait": "portraits/doctor.webp",
+        "motive": "Lady Constance owed her three years of unpaid house calls."
+      },
+      {
+        "id": "colonel",
+        "name": "Colonel Rupert Hargreaves",
+        "shortName": "Colonel Hargreaves",
+        "role": "the retired colonel",
+        "traits": [
+          "booming",
+          "tells long war stories",
+          "easily offended"
+        ],
+        "voiceId": "Gregory",
+        "portrait": "portraits/colonel.webp",
+        "motive": "Lady Constance told everyone the Colonel spent the war in a supply depot. He did."
+      },
+      {
+        "id": "magician",
+        "name": "Hugo Mysterio",
+        "shortName": "Mysterio",
+        "role": "the stage magician",
+        "traits": [
+          "smooth",
+          "deflects with jokes",
+          "secretly insecure"
+        ],
+        "voiceId": "Stephen",
+        "portrait": "portraits/magician.webp",
+        "motive": "Lady Constance was his biggest investor, and wanted the money back."
+      }
+    ],
+    "items": [
+      {
+        "id": "draught",
+        "name": "bottle of sleeping draught",
+        "homeRoom": "pantry"
+      },
+      {
+        "id": "mallet",
+        "name": "croquet mallet",
+        "homeRoom": "hall"
+      },
+      {
+        "id": "cord",
+        "name": "silk dressing gown cord",
+        "homeRoom": "library"
+      },
+      {
+        "id": "decanter",
+        "name": "decanter of port",
+        "homeRoom": "dining"
+      }
+    ]
+  },
+  "boardClues": [
+    {
+      "id": "r1b1",
+      "kind": "testimony",
+      "title": "Colonel Hargreaves's little secret",
+      "text": "At 8:00 pm, Colonel Rupert Hargreaves was in the Dining Room, swapping the place cards to sit next to their crush. Which explains all that insisting on the Great Hall.",
+      "short": "Colonel Hargreaves fibbed about 8:00 pm: really in the Dining Room",
+      "visibility": "board",
+      "round": 1,
+      "fact": {
+        "k": "at",
+        "s": "colonel",
+        "room": "dining",
+        "slot": 0
+      }
+    },
+    {
+      "id": "r1b2",
+      "kind": "physical",
+      "title": "The croquet mallet",
+      "text": "A photograph of the Great Hall taken at 10:00 pm shows the croquet mallet in its usual spot, minding its own business.",
+      "short": "The croquet mallet, still in the Great Hall at 10:00 pm",
+      "visibility": "board",
+      "round": 1,
+      "fact": {
+        "k": "itemIn",
+        "item": "mallet",
+        "room": "hall",
+        "slot": 4
+      },
+      "key": true
+    },
+    {
+      "id": "r2b1",
+      "kind": "testimony",
+      "title": "Algy's little secret",
+      "text": "Fresh evidence: at 8:30 pm Algernon Pike was in the Great Hall, sliding down the banister. Not the Dining Room, whatever Algy may say.",
+      "short": "Algy fibbed about 8:30 pm: really in the Great Hall",
+      "visibility": "board",
+      "round": 2,
+      "fact": {
+        "k": "at",
+        "s": "nephew",
+        "room": "hall",
+        "slot": 1
+      }
+    },
+    {
+      "id": "r2b2",
+      "kind": "physical",
+      "title": "An alibi wobbles",
+      "text": "Mrs. Dolly Pargeter claims to have spent 9:30 pm in the Dining Room. But at 9:30 pm nobody was in the Dining Room: the lamps were off and the cat was asleep on the only chair.",
+      "short": "No sign of Mrs Pargeter in the Dining Room at 9:30 pm",
+      "visibility": "board",
+      "round": 2,
+      "fact": {
+        "k": "notAt",
+        "s": "cook",
+        "room": "dining",
+        "slot": 3
+      }
+    },
+    {
+      "id": "r3b1",
+      "kind": "physical",
+      "title": "An empty room",
+      "text": "Nobody was in the Dining Room at 9:30 pm: the lamps were off and the cat was asleep on the only chair. So Hugo Mysterio was not there either.",
+      "short": "The Dining Room stood empty at 9:30 pm. No Mysterio",
+      "visibility": "board",
+      "round": 3,
+      "fact": {
+        "k": "notAt",
+        "s": "magician",
+        "room": "dining",
+        "slot": 3
+      }
+    },
+    {
+      "id": "r3b2",
+      "kind": "physical",
+      "title": "An empty room",
+      "text": "At 8:00 pm the Kitchen stood empty: the lamps were off and the cat was asleep on the only chair. Wherever Dr. Harriet Bligh was, it was not there.",
+      "short": "The Kitchen stood empty at 8:00 pm. No Dr Bligh",
+      "visibility": "board",
+      "round": 3,
+      "fact": {
+        "k": "notAt",
+        "s": "doctor",
+        "room": "kitchen",
+        "slot": 0
+      }
+    }
+  ],
+  "privateCluesBySeat": {
+    "0": [
+      {
+        "id": "r1s0",
+        "kind": "testimony",
+        "title": "A pair of alibis",
+        "text": "At 10:00 pm, Dr. Harriet Bligh and Colonel Rupert Hargreaves were in the Study together, debating the correct way to butter toast. Neither will admit who won.",
+        "short": "Dr Bligh and Colonel Hargreaves, together in the Study at 10:00 pm",
+        "visibility": "private",
+        "round": 1,
+        "fact": {
+          "k": "saw",
+          "a": "doctor",
+          "b": "colonel",
+          "room": "study",
+          "slot": 4
+        },
+        "key": true,
+        "holderPlayerSlot": 0
+      },
+      {
+        "id": "r2s0",
+        "kind": "testimony",
+        "title": "Algernon Pike's account",
+        "text": "\"Hugo Mysterio? In the Great Hall at 9:30 pm, with me. Talked my ear off the whole time,\" says Algernon Pike.",
+        "short": "Algy puts Mysterio in the Great Hall at 9:30 pm",
+        "visibility": "private",
+        "round": 2,
+        "fact": {
+          "k": "at",
+          "s": "magician",
+          "room": "hall",
+          "slot": 3
+        },
+        "holderPlayerSlot": 0
+      },
+      {
+        "id": "r3s0",
+        "kind": "physical",
+        "title": "The bottle of sleeping draught",
+        "text": "At 9:00 pm the bottle of sleeping draught was right where it belongs, in the Pantry. Someone remembers dusting round it.",
+        "short": "The bottle of sleeping draught, still in the Pantry at 9:00 pm",
+        "visibility": "private",
+        "round": 3,
+        "fact": {
+          "k": "itemIn",
+          "item": "draught",
+          "room": "pantry",
+          "slot": 2
+        },
+        "key": true,
+        "holderPlayerSlot": 0
+      }
+    ],
+    "1": [
+      {
+        "id": "r1s1",
+        "kind": "testimony",
+        "title": "Mrs. Dolly Pargeter keeps watch",
+        "text": "\"The Kitchen at 10:00 pm? I was there. Hugo Mysterio was not. I would have noticed,\" says Mrs. Dolly Pargeter.",
+        "short": "Mrs Pargeter swears: no Mysterio in the Kitchen at 10:00 pm",
+        "visibility": "private",
+        "round": 1,
+        "fact": {
+          "k": "notAt",
+          "s": "magician",
+          "room": "kitchen",
+          "slot": 4
+        },
+        "holderPlayerSlot": 1
+      },
+      {
+        "id": "r2s1",
+        "kind": "testimony",
+        "title": "Hugo Mysterio's account",
+        "text": "Hugo Mysterio remembers sharing the Great Hall with Algernon Pike at 9:30 pm, and would rather not discuss the conversation.",
+        "short": "Mysterio puts Algy in the Great Hall at 9:30 pm",
+        "visibility": "private",
+        "round": 2,
+        "fact": {
+          "k": "at",
+          "s": "nephew",
+          "room": "hall",
+          "slot": 3
+        },
+        "key": true,
+        "holderPlayerSlot": 1
+      },
+      {
+        "id": "r3s1",
+        "kind": "testimony",
+        "title": "Overheard",
+        "text": "Mrs. Dolly Pargeter and Algernon Pike were heard in the Dining Room at 9:00 pm, arguing about the host's terrible taste in wallpaper.",
+        "short": "Mrs Pargeter and Algy bickering in the Dining Room, 9:00 pm",
+        "visibility": "private",
+        "round": 3,
+        "fact": {
+          "k": "saw",
+          "a": "cook",
+          "b": "nephew",
+          "room": "dining",
+          "slot": 2
+        },
+        "key": true,
+        "holderPlayerSlot": 1
+      }
+    ],
+    "2": [
+      {
+        "id": "r1s2",
+        "kind": "physical",
+        "title": "An empty room",
+        "text": "Nobody was in the Great Hall at 9:00 pm: the cushions were still perfectly plumped and nobody had touched the biscuits. So Hugo Mysterio was not there either.",
+        "short": "The Great Hall stood empty at 9:00 pm. No Mysterio",
+        "visibility": "private",
+        "round": 1,
+        "fact": {
+          "k": "notAt",
+          "s": "magician",
+          "room": "hall",
+          "slot": 2
+        },
+        "holderPlayerSlot": 2
+      },
+      {
+        "id": "r2s2",
+        "kind": "document",
+        "title": "A scribbled note",
+        "text": "A note in Hugo Mysterio's handwriting: \"In the Library at 8:30 pm. Do not disturb unless there is cake.\"",
+        "short": "Mysterio's own note: in the Library at 8:30 pm",
+        "visibility": "private",
+        "round": 2,
+        "fact": {
+          "k": "at",
+          "s": "magician",
+          "room": "library",
+          "slot": 1
+        },
+        "holderPlayerSlot": 2
+      },
+      {
+        "id": "r3s2",
+        "kind": "physical",
+        "title": "The silk dressing gown cord",
+        "text": "At 9:00 pm the silk dressing gown cord was right where it belongs, in the Library. Someone remembers dusting round it.",
+        "short": "The silk dressing gown cord, still in the Library at 9:00 pm",
+        "visibility": "private",
+        "round": 3,
+        "fact": {
+          "k": "itemIn",
+          "item": "cord",
+          "room": "library",
+          "slot": 2
+        },
+        "key": true,
+        "holderPlayerSlot": 2
+      }
+    ],
+    "3": [
+      {
+        "id": "r1s3",
+        "kind": "physical",
+        "title": "An empty room",
+        "text": "Nobody was in the Study at 8:30 pm: the cushions were still perfectly plumped and nobody had touched the biscuits. So Hugo Mysterio was not there either.",
+        "short": "The Study stood empty at 8:30 pm. No Mysterio",
+        "visibility": "private",
+        "round": 1,
+        "fact": {
+          "k": "notAt",
+          "s": "magician",
+          "room": "study",
+          "slot": 1
+        },
+        "holderPlayerSlot": 3
+      },
+      {
+        "id": "r2s3",
+        "kind": "physical",
+        "title": "The silk dressing gown cord",
+        "text": "The Library was tidied at 10:00 pm. The silk dressing gown cord was there, exactly where it always is.",
+        "short": "The silk dressing gown cord, still in the Library at 10:00 pm",
+        "visibility": "private",
+        "round": 2,
+        "fact": {
+          "k": "itemIn",
+          "item": "cord",
+          "room": "library",
+          "slot": 4
+        },
+        "holderPlayerSlot": 3
+      },
+      {
+        "id": "r3s3",
+        "kind": "physical",
+        "title": "The decanter of port wanders",
+        "text": "At 10:00 pm the decanter of port turned up in the Kitchen, where it has no business being.",
+        "short": "The decanter of port turns up in the Kitchen, 10:00 pm",
+        "visibility": "private",
+        "round": 3,
+        "fact": {
+          "k": "itemIn",
+          "item": "decanter",
+          "room": "kitchen",
+          "slot": 4
+        },
+        "holderPlayerSlot": 3
+      }
+    ],
+    "4": [
+      {
+        "id": "r1s4",
+        "kind": "testimony",
+        "title": "Hugo Mysterio's account",
+        "text": "Hugo Mysterio remembers sharing the Library with Colonel Rupert Hargreaves at 9:00 pm, and would rather not discuss the conversation.",
+        "short": "Mysterio puts Colonel Hargreaves in the Library at 9:00 pm",
+        "visibility": "private",
+        "round": 1,
+        "fact": {
+          "k": "at",
+          "s": "colonel",
+          "room": "library",
+          "slot": 2
+        },
+        "holderPlayerSlot": 4
+      },
+      {
+        "id": "r2s4",
+        "kind": "physical",
+        "title": "The croquet mallet",
+        "text": "A photograph of the Great Hall taken at 8:00 pm shows the croquet mallet in its usual spot, minding its own business.",
+        "short": "The croquet mallet, still in the Great Hall at 8:00 pm",
+        "visibility": "private",
+        "round": 2,
+        "fact": {
+          "k": "itemIn",
+          "item": "mallet",
+          "room": "hall",
+          "slot": 0
+        },
+        "holderPlayerSlot": 4
+      },
+      {
+        "id": "r3s4",
+        "kind": "physical",
+        "title": "An empty room",
+        "text": "Nobody was in the Kitchen at 9:00 pm: the door was still wedged shut with yesterday's newspaper. So Algernon Pike was not there either.",
+        "short": "The Kitchen stood empty at 9:00 pm. No Algy",
+        "visibility": "private",
+        "round": 3,
+        "fact": {
+          "k": "notAt",
+          "s": "nephew",
+          "room": "kitchen",
+          "slot": 2
+        },
+        "holderPlayerSlot": 4
+      }
+    ],
+    "5": [
+      {
+        "id": "r1s5",
+        "kind": "testimony",
+        "title": "Hugo Mysterio's account",
+        "text": "Hugo Mysterio remembers sharing the Dining Room with Algernon Pike at 10:00 pm, and would rather not discuss the conversation.",
+        "short": "Mysterio puts Algy in the Dining Room at 10:00 pm",
+        "visibility": "private",
+        "round": 1,
+        "fact": {
+          "k": "at",
+          "s": "nephew",
+          "room": "dining",
+          "slot": 4
+        },
+        "holderPlayerSlot": 5
+      },
+      {
+        "id": "r2s5",
+        "kind": "physical",
+        "title": "An empty room",
+        "text": "At 9:00 pm the Great Hall stood empty: the dust on the floor shows not a single footprint. Wherever Mrs. Dolly Pargeter was, it was not there.",
+        "short": "The Great Hall stood empty at 9:00 pm. No Mrs Pargeter",
+        "visibility": "private",
+        "round": 2,
+        "fact": {
+          "k": "notAt",
+          "s": "cook",
+          "room": "hall",
+          "slot": 2
+        },
+        "holderPlayerSlot": 5
+      },
+      {
+        "id": "r3s5",
+        "kind": "physical",
+        "title": "An empty room",
+        "text": "Nobody was in the Library at 10:00 pm: the lamps were off and the cat was asleep on the only chair. So Colonel Rupert Hargreaves was not there either.",
+        "short": "The Library stood empty at 10:00 pm. No Colonel Hargreaves",
+        "visibility": "private",
+        "round": 3,
+        "fact": {
+          "k": "notAt",
+          "s": "colonel",
+          "room": "library",
+          "slot": 4
+        },
+        "holderPlayerSlot": 5
+      }
+    ]
+  },
+  "culprit": "cook",
+  "item": "decanter",
+  "accomplicePlayerSeat": 4,
+  "safeLies": [
+    {
+      "text": "I'm almost certain I saw Algernon Pike in the Dining Room at 8:00 pm.",
+      "fact": {
+        "k": "at",
+        "s": "nephew",
+        "room": "dining",
+        "slot": 0
+      }
+    },
+    {
+      "text": "I'm almost certain I saw Hugo Mysterio in the Great Hall at 10:00 pm.",
+      "fact": {
+        "k": "at",
+        "s": "magician",
+        "room": "hall",
+        "slot": 4
+      }
+    },
+    {
+      "text": "I'm almost certain I saw Dr. Harriet Bligh in the Conservatory at 9:30 pm.",
+      "fact": {
+        "k": "at",
+        "s": "doctor",
+        "room": "conservatory",
+        "slot": 3
+      }
+    }
+  ],
+  "proofChain": [
+    {
+      "clueId": "r1s0",
+      "says": "Dr. Harriet Bligh and Colonel Rupert Hargreaves were together in the Study at 10:00 pm.",
+      "therefore": "Put that together with what we know, and Dr. Harriet Bligh and Colonel Rupert Hargreaves are in the clear.",
+      "eliminates": [
+        "doctor",
+        "colonel"
+      ]
+    },
+    {
+      "clueId": "r2s1",
+      "says": "Algernon Pike was in the Great Hall at 9:30 pm.",
+      "therefore": "So Algernon Pike was elsewhere at 9:30 pm, and could not have done it.",
+      "eliminates": [
+        "nephew"
+      ]
+    },
+    {
+      "clueId": "r2s0",
+      "says": "Hugo Mysterio was in the Great Hall at 9:30 pm.",
+      "therefore": "So Hugo Mysterio was elsewhere at 9:30 pm, and could not have done it.",
+      "eliminates": [
+        "magician"
+      ]
+    },
+    {
+      "clueId": "r1b2",
+      "says": "The croquet mallet was in the Great Hall at 10:00 pm.",
+      "therefore": "So the croquet mallet could not have been in the Kitchen at 9:30 pm. It was not used."
+    },
+    {
+      "clueId": "r3s2",
+      "says": "The silk dressing gown cord was in the Library at 9:00 pm.",
+      "therefore": "So the silk dressing gown cord could not have been in the Kitchen at 9:30 pm. It was not used."
+    },
+    {
+      "clueId": "r3s0",
+      "says": "The bottle of sleeping draught was in the Pantry at 9:00 pm.",
+      "therefore": "On its own it proves nothing. Hold on to it."
+    },
+    {
+      "clueId": "r3s1",
+      "says": "Mrs. Dolly Pargeter and Algernon Pike were together in the Dining Room at 9:00 pm.",
+      "therefore": "So the bottle of sleeping draught could not have been in the Kitchen at 9:30 pm. It was not used."
+    },
+    {
+      "clueId": "r2b2",
+      "says": "Mrs. Dolly Pargeter was not in the Dining Room at 9:30 pm.",
+      "therefore": "So Mrs. Dolly Pargeter lied about 9:30 pm. Everyone else is ruled out. Mrs. Dolly Pargeter took the decanter of port from the Dining Room and was in the Kitchen at 9:30 pm."
+    }
+  ]
+}

@@ -14,6 +14,8 @@ export default defineConfig({
       '/audio': { target, changeOrigin: false },
       '/api': { target, changeOrigin: false },
       '/assets': { target, changeOrigin: false },
+      // suspect portraits, served by the game server from the TV app
+      '/tv': { target, changeOrigin: false },
     },
   },
   preview: { port: 5175 },

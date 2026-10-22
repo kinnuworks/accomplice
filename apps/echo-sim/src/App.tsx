@@ -14,7 +14,7 @@ const params = new URLSearchParams(location.search);
 const HOUSEHOLD = params.get('household') ?? 'living-room';
 const MCP_URL = new URL(params.get('mcp') ?? '/mcp', location.origin);
 const SCREEN_W = 1280;
-const SCREEN_H = 720;
+const SCREEN_H = 800; // Echo Show 8 and 15: 1280x800, Alexa root scale 1.667
 
 function uiMetaOf(meta: unknown): UiMeta {
   const m = (meta ?? {}) as { ui?: UiMeta; 'ui/resourceUri'?: string };
@@ -47,6 +47,7 @@ export function App() {
   const [elicit, setElicit] = useState<{ message: string; resolve: (r: ElicitResult) => void } | null>(null);
   const [drawer, setDrawer] = useState(params.get('drawer') !== '0');
   const [muted, setMuted] = useState(params.get('mute') === '1');
+  const [theme, setTheme] = useState<'dark' | 'light'>(params.get('theme') === 'light' ? 'light' : 'dark');
   const [typed, setTyped] = useState('');
   const [traffic, setTraffic] = useState<TrafficEntry[]>([]);
   const [scale, setScale] = useState(0.6);
@@ -76,7 +77,7 @@ export function App() {
     return off;
   }, [conn]);
 
-  // fit the 1280x720 screen into the available space
+  // fit the 1280x800 screen into the available space
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
@@ -244,13 +245,14 @@ export function App() {
         <div className="device" style={{ width: (SCREEN_W + 48) * scale, height: (SCREEN_H + 48) * scale }}>
           <div className="bezel" style={{ transform: `scale(${scale})` }}>
             <span className="camera" aria-hidden="true" />
-            <div className="screen" role="application" aria-label="Simulated smart display">
+            <div className={`screen theme-${theme}`} role="application" aria-label="Simulated smart display">
               {board ? (
                 <AppFrame
                   ref={setFrame}
                   html={board.html}
                   csp={board.csp}
                   log={conn.log}
+                  theme={theme}
                   toolName={boardTool}
                   onCallTool={(name, args) => runTool(name, args, true)}
                   onReadResource={(uri) => conn.readResource(uri)}
@@ -307,7 +309,7 @@ export function App() {
         </div>
 
         <div className="controls">
-          <div className="label">Simulated Alexa+ (Echo Show)</div>
+          <div className="label">Simulated Alexa+ (Echo Show 8 / 15, 1280x800)</div>
           <div className="control-row">
             <button className={`mic ${status}`} onClick={wake} aria-label={status === 'listening' ? 'Stop listening' : 'Talk'}>
               <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
@@ -323,6 +325,7 @@ export function App() {
               <button type="submit" className="pill primary">Say it</button>
             </form>
             <button className="pill" onClick={() => setMuted((m) => !m)} aria-pressed={muted}>{muted ? 'Sound off' : 'Sound on'}</button>
+            <button className="pill" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))} aria-label={`Switch the display to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? 'Dark' : 'Light'}</button>
             <button className="pill" onClick={() => setDrawer((d) => !d)} aria-pressed={drawer}>Developer</button>
           </div>
           <div className="fineprint">An independent test page that acts as a real MCP client. Not an Amazon product.</div>

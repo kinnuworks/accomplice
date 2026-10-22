@@ -411,7 +411,8 @@ export function buildServer(ctx: BuildContext): McpServer {
 
       const r = await game.accuse(s.id, itm?.id);
       const speech = `${r.correct ? 'Case closed!' : 'Oh dear.'} ${r.explanation}`;
-      return reply('verdict', speech, { household: hhOf(household), result: r, suspect: suspectView(s) },
+      const real = suspects.find((x) => x.id === r.culprit.id);
+      return reply('verdict', speech, { household: hhOf(household), result: r, suspect: suspectView(s), culprit: real ? suspectView(real) : undefined },
         r.steps?.length ? r.steps.map((x, i) => `${i + 1}. ${x.says} So ${x.therefore.charAt(0).toLowerCase()}${x.therefore.slice(1)}`).join('\n') : undefined);
     },
   );

@@ -5,116 +5,112 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Accomplice evidence board</title>
 <style>
-  /* Far-field type: one root size, everything else on a 1.6 scale. */
+  /*
+    Built on the Alexa+ add-on base canvas: 768x480, one root scale.
+    1rem = one base pixel, so the sizes below read exactly like the Alexa type tokens
+    (Display2 40, Display5 24, Body1 16, Body3 12, Label1 10). On an Echo Show 8 or 15
+    (1280x800) the root scale is 1.667.
+  */
+  html { font-size: calc(min(100vw / 768, 100vh / 480)); }
   :root {
-    --ink: #120d18;
-    --plum: #2a1834;
-    --plum-2: #3a2346;
-    --brass: #e0b25b;
-    --brass-2: #f3cf86;
-    --paper: #f4e8cf;
-    --paper-ink: #2b2118;
-    --text: #f7f0e4;
-    --muted: #cbbfd2;
-    --good: #8fd6a4;
-    --bad: #ff9b8a;
-    --t-small: 0.625rem;  /* 1 / 1.6 */
-    --t-body: 1rem;
-    --t-head: 1.6rem;
-    --t-title: 2.56rem;   /* 1.6 squared */
-    --radius: 0.7rem;
+    --page: #0B0D10;
+    --card: #14181E;
+    --inner: #1B2028;
+    --text: #F5EDE0;
+    --muted: #B8B0A6;
+    --line: rgba(245, 237, 224, 0.14);
+    --brand: #C9A24A;          /* brass: accents and the primary action only */
+    --brand-ink: #17120A;
+    --brand-text: #D9B65E;     /* brass used as text on dark */
+    --secondary: #232F40;
+    --paper: #F3E7CC;
+    --paper-ink: #2A1F17;
+    --good: #7FD39B;
+    --bad: #FF9E8C;
     --serif: "Playfair Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-    --sans: Inter, "Amazon Ember", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --sans: "Amazon Ember", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: dark;
   }
-  html { font-size: clamp(16px, min(4.2vh, 2.4vw), 44px); }
+  :root[data-theme="light"] {
+    --page: #FAF9FB;
+    --card: #FFFFFF;
+    --inner: #F1EEF2;
+    --text: #2A1F17;
+    --muted: #5E5248;
+    --line: rgba(42, 31, 23, 0.14);
+    --brand-text: #7E5F17;
+    --secondary: #E7E3EA;
+    --good: #1E7A44;
+    --bad: #B03A2A;
+    color-scheme: light;
+  }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
-  body {
-    background:
-      radial-gradient(120% 90% at 85% 0%, rgba(224,178,91,.14), transparent 55%),
-      radial-gradient(90% 80% at 0% 100%, rgba(120,60,140,.35), transparent 60%),
-      linear-gradient(160deg, var(--plum) 0%, var(--ink) 75%);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: var(--t-body);
-    line-height: 1.3;
-    overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-  }
-  #stage { position: absolute; inset: 0; padding: 1.2rem 1.6rem 1rem; display: flex; flex-direction: column; }
-  .kicker { font-size: var(--t-small); letter-spacing: .18em; text-transform: uppercase; color: var(--brass); font-weight: 700; margin: 0 0 .35rem; }
-  h1 { font-family: var(--serif); font-size: var(--t-title); line-height: 1.05; margin: 0 0 .6rem; font-weight: 700; text-wrap: balance; }
-  h1.mid { font-size: var(--t-head); line-height: 1.2; }
-  .field { font-size: var(--t-body); color: var(--muted); margin: 0 0 .35rem; max-width: 34em; }
+  body { background: var(--page); color: var(--text); font-family: var(--sans); font-size: 16rem; line-height: 1.35; -webkit-font-smoothing: antialiased; }
+
+  /* one card that fills the canvas, 24 base px in from the edges */
+  #stage { position: absolute; inset: 0; padding: 20rem 24rem 16rem; display: flex; flex-direction: column; }
+  .brandbar { display: flex; align-items: center; gap: 6rem; font-size: 12rem; font-weight: 700; letter-spacing: .08em; color: var(--muted); margin-bottom: 12rem; }
+  .brandbar i { width: 8rem; height: 8rem; border-radius: 9999rem; background: var(--brand); }
+  .card { flex: 1; min-height: 0; background: var(--card); border-radius: 16rem; padding: 24rem; display: flex; gap: 24rem; align-items: center; box-shadow: 0 0 0 1rem var(--line); }
+  .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .kicker { font-size: 12rem; letter-spacing: .1em; text-transform: uppercase; color: var(--brand-text); font-weight: 700; margin: 0 0 6rem; }
+  h1 { font-family: var(--serif); font-size: 40rem; line-height: 1.08; margin: 0 0 12rem; font-weight: 700; text-wrap: balance; }
+  h1.d5 { font-size: 24rem; line-height: 1.25; }
+  .field { font-size: 16rem; color: var(--muted); margin: 0 0 6rem; text-wrap: pretty; }
   .field strong { color: var(--text); font-weight: 600; }
-  .body { flex: 1; display: flex; gap: 1.4rem; align-items: center; min-height: 0; }
-  .col { flex: 1; min-width: 0; }
-  .actions { display: flex; gap: .6rem; align-items: center; margin-top: .8rem; }
+  .quote { font-family: var(--serif); font-size: 24rem; line-height: 1.28; margin: 0 0 8rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .actions { display: flex; gap: 12rem; align-items: center; margin-top: 16rem; }
   button.action {
-    font: 700 var(--t-body)/1 var(--sans); color: var(--ink); background: var(--brass);
-    border: 0; border-radius: 999px; padding: .55rem 1.2rem; cursor: pointer;
-    box-shadow: 0 .2rem 0 #9d7432; transition: transform .12s ease;
+    font: 700 16rem/1 var(--sans); color: var(--brand-ink); background: var(--brand);
+    border: 0; border-radius: 9999rem; min-height: 48rem; min-width: 48rem; padding: 0 24rem; cursor: pointer;
   }
-  button.action:active { transform: translateY(.1rem); box-shadow: 0 .1rem 0 #9d7432; }
-  button.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 .1rem rgba(247,240,228,.5); }
-  button:focus-visible { outline: .15rem solid var(--brass-2); outline-offset: .15rem; }
-  .say { margin-top: auto; padding-top: .5rem; font-size: var(--t-small); color: var(--muted); letter-spacing: .02em; }
-  .say q { color: var(--brass-2); font-style: italic; quotes: "\201C" "\201D"; }
+  button.action.secondary { background: var(--secondary); color: var(--text); }
+  button:active { transform: scale(.98); }
+  button:focus-visible { outline: 3rem solid var(--brand); outline-offset: 3rem; }
+  .say { margin-top: 12rem; font-size: 12rem; color: var(--muted); }
+  .say q { color: var(--text); font-style: italic; }
 
-  /* medallion for suspects */
-  .medal {
-    flex: none; width: 5.2rem; height: 5.2rem; border-radius: 50%;
-    display: grid; place-items: center; font-family: var(--serif); font-size: var(--t-head); font-weight: 700;
-    color: var(--ink); background: radial-gradient(circle at 35% 30%, var(--brass-2), var(--brass) 60%, #9d7432);
-    box-shadow: 0 0 0 .2rem rgba(224,178,91,.25), 0 .4rem 1.2rem rgba(0,0,0,.45);
-    overflow: hidden;
-  }
-  .medal.big { width: 7.2rem; height: 7.2rem; font-size: var(--t-title); }
-  .medal img { width: 100%; height: 100%; object-fit: cover; }
-  .quote { font-family: var(--serif); font-size: var(--t-head); line-height: 1.25; margin: 0 0 .5rem; text-wrap: pretty; }
-  .quote::before { content: "\201C"; color: var(--brass); }
-  .quote::after { content: "\201D"; color: var(--brass); }
+  /* portraits */
+  .portrait { flex: none; width: 120rem; height: 120rem; border-radius: 9999rem; overflow: hidden; background: var(--inner); box-shadow: 0 0 0 2rem var(--brand); display: grid; place-items: center; font: 700 32rem var(--serif); color: var(--muted); }
+  .portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .portrait.sm { width: 64rem; height: 64rem; font-size: 20rem; box-shadow: 0 0 0 1.5rem var(--line); }
 
-  /* tiles */
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .7rem; width: 100%; }
+  /* list rows: 3 to 5 tiles, each a 48+ px target */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120rem, 1fr)); gap: 12rem; width: 100%; margin-top: 4rem; }
   .tile {
-    font: inherit; color: inherit; text-align: left; cursor: pointer;
-    background: rgba(255,255,255,.06); border: .06rem solid rgba(224,178,91,.35); border-radius: var(--radius);
-    padding: .7rem; display: flex; flex-direction: column; gap: .45rem; align-items: flex-start;
+    font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: 48rem;
+    background: var(--inner); border: 0; border-radius: 12rem; padding: 12rem;
+    display: flex; flex-direction: column; gap: 8rem; align-items: flex-start;
   }
-  .tile:hover, .tile:focus-visible { background: rgba(224,178,91,.14); }
-  .tile .medal { width: 2.8rem; height: 2.8rem; font-size: var(--t-body); }
-  .tile .name { font-weight: 700; line-height: 1.15; }
-  .tile .role { font-size: var(--t-small); color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
+  .tile:hover { box-shadow: 0 0 0 2rem var(--brand); }
+  .tile .name { font-size: 16rem; font-weight: 700; line-height: 1.2; }
+  .tile .role { font-size: 12rem; color: var(--muted); }
 
-  /* paper clue card */
-  .paper {
-    background: var(--paper); color: var(--paper-ink); border-radius: .3rem; padding: 1rem 1.2rem;
-    box-shadow: 0 .6rem 1.6rem rgba(0,0,0,.5); transform: rotate(-1.2deg); position: relative; max-width: 30rem;
-  }
-  .paper::before { content: ""; position: absolute; top: -.45rem; left: 50%; width: .9rem; height: .9rem; border-radius: 50%; background: #b3322b; box-shadow: 0 .1rem .2rem rgba(0,0,0,.5); }
-  .paper .kicker { color: #8a5a1c; }
-  .paper h1 { color: var(--paper-ink); font-size: var(--t-head); }
-  .paper p { margin: 0; font-size: var(--t-body); line-height: 1.35; }
-  .tiles.paper-tiles .tile { background: var(--paper); color: var(--paper-ink); border: 0; transform: rotate(var(--r, -1deg)); }
-  .tiles.paper-tiles .tile .role { color: #8a5a1c; }
+  /* the one paper accent: a clue card */
+  .paper { background: var(--paper); color: var(--paper-ink); border-radius: 8rem; padding: 20rem 24rem; transform: rotate(-1deg); position: relative; max-width: 440rem; box-shadow: 0 8rem 24rem rgba(0,0,0,.35); }
+  .paper::before { content: ""; position: absolute; top: -6rem; left: 50%; width: 12rem; height: 12rem; border-radius: 9999rem; background: #A8322A; }
+  .paper .kicker { color: #7E5F17; }
+  .paper h1 { color: var(--paper-ink); font-size: 24rem; margin-bottom: 8rem; }
+  .paper p { margin: 0; font-size: 16rem; line-height: 1.4; }
+  .clue-tile { background: var(--paper) !important; color: var(--paper-ink); }
+  .clue-tile .role { color: #6B5641 !important; }
+  .new { color: var(--brand-text); font-weight: 700; }
 
-  .paper.scene { flex: none; width: 13rem; transform: rotate(2.5deg); align-self: center; }
-  .scene-place { font-family: var(--serif); font-size: var(--t-body) !important; font-weight: 700; margin: 0 0 .4rem !important; }
-  .scene-date { font-size: var(--t-small) !important; color: #6b5641; letter-spacing: .04em; }
-  .verdict-good { color: var(--good); }
-  .verdict-bad { color: var(--bad); }
-  .chip { display: inline-block; font-size: var(--t-small); text-transform: uppercase; letter-spacing: .14em; padding: .25rem .6rem; border-radius: 999px; background: rgba(224,178,91,.16); color: var(--brass-2); margin-right: .4rem; }
-
-  /* waiting state */
-  .dots { display: inline-flex; gap: .35rem; margin-left: .3rem; vertical-align: middle; }
-  .dots i { width: .45rem; height: .45rem; border-radius: 50%; background: var(--brass); animation: flick 1.2s infinite ease-in-out; }
+  .verdict-good { color: var(--good) !important; }
+  .verdict-bad { color: var(--bad) !important; }
+  .dots { display: inline-flex; gap: 6rem; margin-left: 8rem; vertical-align: middle; }
+  .dots i { width: 8rem; height: 8rem; border-radius: 9999rem; background: var(--brand); animation: blink 1.2s infinite ease-in-out; }
   .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
-  @keyframes flick { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-.2rem); } }
-  .enter { animation: rise .35s ease-out both; }
-  @keyframes rise { from { opacity: 0; transform: translateY(.6rem); } to { opacity: 1; transform: none; } }
+  @keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+  .enter { animation: rise .25s cubic-bezier(0.05, 0.7, 0.1, 1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8rem); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .enter, .dots i { animation: none; } }
-  .busy::after { content: ""; position: absolute; inset: 0; background: rgba(18,13,24,.35); }
+  .busy .card { opacity: .7; }
+
+  /* smaller hosts (phone or web) get a compact layout */
+  .dc-mobile .card { flex-direction: column; align-items: flex-start; }
+  .dc-mobile .portrait { width: 72rem; height: 72rem; }
 </style>
 </head>
 <body>
@@ -124,7 +120,8 @@
   'use strict';
   const PROTOCOL = '2026-01-26';
   const stage = document.getElementById('stage');
-  let last = null;        // last structuredContent rendered
+  const root = document.documentElement;
+  let last = null;
   let nextId = 1;
   const pending = new Map();
 
@@ -154,7 +151,7 @@
       case 'ui/notifications/tool-input': showWorking(m.params && m.params.arguments); break;
       case 'ui/notifications/tool-input-partial': break;
       case 'ui/notifications/tool-result': renderResult(m.params); break;
-      case 'ui/notifications/tool-cancelled': if (last) render(last); else render({ view: 'empty' }); break;
+      case 'ui/notifications/tool-cancelled': render(last || { view: 'empty' }); break;
       case 'ui/notifications/host-context-changed': applyContext(m.params); break;
       case 'ui/resource-teardown': send({ jsonrpc: '2.0', id: m.id, result: {} }); break;
       case 'ping': send({ jsonrpc: '2.0', id: m.id, result: {} }); break;
@@ -162,17 +159,24 @@
     }
   });
 
+  // theme and breakpoint come from the host; fall back to the system setting
   function applyContext(ctx) {
     if (!ctx) return;
-    if (ctx.theme) document.documentElement.dataset.theme = ctx.theme;
-    if (ctx.locale) document.documentElement.lang = ctx.locale;
+    if (ctx.theme) root.dataset.theme = ctx.theme;
+    if (ctx.locale) root.lang = ctx.locale;
+    const w = ctx.containerDimensions && (ctx.containerDimensions.width || ctx.containerDimensions.maxWidth);
+    const cls = ctx.platform === 'mobile' || (w && w < 600) ? 'dc-mobile' : (w && w >= 960) ? 'dc-echo-show' : 'dc-web';
+    root.classList.remove('dc-mobile', 'dc-echo-show', 'dc-web');
+    root.classList.add(cls);
+    const s = ctx.safeAreaInsets;
+    if (s) stage.style.padding = `calc(20rem + ${s.top}px) calc(24rem + ${s.right}px) calc(16rem + ${s.bottom}px) calc(24rem + ${s.left}px)`;
   }
+  if (!root.dataset.theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) root.dataset.theme = 'light';
 
   async function callTool(name, args) {
     stage.classList.add('busy');
     try {
-      const result = await request('tools/call', { name, arguments: args || {} });
-      renderResult(result);
+      renderResult(await request('tools/call', { name, arguments: args || {} }));
     } catch (err) {
       render({ view: 'notice', speech: err && err.message ? err.message : 'That did not work. Try again in a moment.' });
     } finally {
@@ -194,19 +198,19 @@
     return el;
   }
   const initials = (name) => (name || '?').replace(/^(mrs?\.?|ms\.?|miss|dr\.?|lord|lady|sir)\s+/i, '').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-  function medal(s, big) {
-    const m = h('div', { class: big ? 'medal big' : 'medal', 'aria-hidden': 'true' });
+  function portrait(s, small) {
+    const box = h('div', { class: small ? 'portrait sm' : 'portrait' });
     if (s && s.portraitUrl) {
-      const img = h('img', { src: s.portraitUrl, alt: '' });
-      img.onerror = () => { m.textContent = initials(s.name); };
-      m.append(img);
-    } else m.textContent = initials(s && s.name);
-    return m;
+      const img = h('img', { src: s.portraitUrl, alt: `Painted portrait of ${s.name}${s.role ? `, ${s.role}` : ''}` });
+      img.onerror = () => { box.textContent = initials(s.name); box.setAttribute('aria-hidden', 'true'); };
+      box.append(img);
+    } else { box.textContent = initials(s && s.name); box.setAttribute('aria-hidden', 'true'); }
+    return box;
   }
-  const action = (label, fn, ghost) => h('button', { class: ghost ? 'action ghost' : 'action', onclick: fn }, label);
-  const say = (text) => h('div', { class: 'say' }, 'Try saying ', h('q', {}, text));
+  const action = (label, fn, secondary) => h('button', { class: secondary ? 'action secondary' : 'action', onclick: fn }, label);
+  const say = (text) => h('p', { class: 'say' }, 'Try saying ', h('q', {}, text));
 
-  // ---------- views ----------
+  // ---------- views: one title, one or two fields, one action ----------
   function renderResult(result) {
     if (!result) return;
     const sc = result.structuredContent;
@@ -217,145 +221,131 @@
 
   function showWorking(args) {
     const tone = args && args.tone;
-    stage.replaceChildren(h('section', { class: 'col enter' },
+    paint([h('div', { class: 'col' },
       h('p', { class: 'kicker' }, 'One moment'),
       h('h1', {}, 'Working on it', h('span', { class: 'dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))),
-      tone ? h('p', { class: 'field' }, tone === 'cozy' ? 'Baking a cozy little mystery.' : 'Setting a classic parlour mystery.') : null,
-    ));
+      tone ? h('p', { class: 'field' }, tone === 'cozy' ? 'Baking a cozy little mystery.' : 'Setting a classic parlour mystery.') : null)]);
   }
 
   const views = {
-    empty: () => [
-      h('p', { class: 'kicker' }, 'Accomplice'),
+    empty: () => [h('div', { class: 'col' },
+      h('p', { class: 'kicker' }, 'A mystery for the whole room'),
       h('h1', {}, 'No case open yet'),
-      h('p', { class: 'field' }, 'A mystery for the whole room. Everyone questions the suspects, one of you might be in on it.'),
-      h('div', { class: 'actions' }, action('Start a case', () => callTool('start_case', { tone: 'classic' })), action('Cozy case', () => callTool('start_case', { tone: 'cozy' }), true)),
-      say('Start a new case'),
-    ],
+      h('p', { class: 'field' }, 'Question the suspects out loud. One of you might be in on it.'),
+      h('div', { class: 'actions' }, action('Start a case', () => callTool('start_case', { tone: 'classic' }))),
+      say('Start a cozy case'))],
 
     case: (d) => {
       const c = d.case || {};
-      return [h('div', { class: 'body' }, h('div', { class: 'col' },
-        h('p', { class: 'kicker' }, c.solved ? 'Case closed' : 'Case file'),
+      return [h('div', { class: 'col' },
+        h('p', { class: 'kicker' }, c.solved ? 'Case closed' : `Case file${c.round ? ` · round ${c.round}` : ''}`),
         h('h1', {}, c.title || 'The case'),
         h('p', { class: 'field' }, h('strong', {}, `${c.victim ? c.victim.name : 'Someone'} ${c.crime ? c.crime.what : ''}`), c.crime ? ` in ${c.crime.room} at ${c.crime.time}.` : ''),
-        h('p', { class: 'field' }, h('span', { class: 'chip' }, `${c.suspectCount || 0} suspects`), h('span', { class: 'chip' }, `${c.boardClueCount || 0} clues`)),
+        h('p', { class: 'field' }, `${c.suspectCount || 0} suspects, ${c.boardClueCount || 0} clues on the board.`),
         h('div', { class: 'actions' }, c.solved
           ? action('Play again', () => callTool('start_case', { tone: c.tone || 'classic' }))
-          : action('Meet the suspects', () => callTool('list_suspects', {})))),
-        h('aside', { class: 'paper scene', 'aria-hidden': 'true' },
-          h('p', { class: 'kicker' }, 'The scene'),
-          h('p', { class: 'scene-place' }, c.place || ''),
-          h('p', { class: 'scene-date' }, c.dateLine || ''))),
-        say(c.solved ? 'Start a new case' : 'Who are the suspects?'),
-      ];
+          : action('Meet the suspects', () => callTool('list_suspects', {}))),
+        say(c.solved ? 'Start a new case' : 'Who are the suspects?'))];
     },
 
-    suspects: (d) => [
+    suspects: (d) => [h('div', { class: 'col' },
       h('p', { class: 'kicker' }, 'Suspects'),
-      h('h1', { class: 'mid' }, 'Who will you question?'),
-      h('div', { class: 'tiles' }, (d.suspects || []).map((s) =>
+      h('h1', { class: 'd5' }, 'Who will you question?'),
+      h('div', { class: 'tiles' }, (d.suspects || []).slice(0, 5).map((s) =>
         h('button', { class: 'tile', 'aria-label': `Question ${s.name}, ${s.role}`, onclick: () => callTool('question_suspect', { suspect: s.id, question: 'Where were you when it happened?' }) },
-          medal(s), h('span', { class: 'name' }, s.name), h('span', { class: 'role' }, s.role)))),
-      say(d.suspects && d.suspects[0] ? `Ask ${d.suspects[0].role} where they were` : 'Ask the cook where she was'),
-    ],
+          portrait(s, true), h('span', { class: 'name' }, s.name), h('span', { class: 'role' }, s.role)))),
+      say(d.suspects && d.suspects[0] ? `Ask ${d.suspects[0].role} where they were` : 'Ask the cook where she was'))],
 
     reply: (d) => {
       const s = d.suspect || {};
-      return [h('div', { class: 'body' },
-        medal(s, true),
-        h('div', { class: 'col' },
-          h('p', { class: 'kicker' }, `${s.name || 'Suspect'}, ${s.role || ''}`),
-          h('p', { class: 'quote' }, d.answer || d.speech),
-          d.question ? h('p', { class: 'field' }, 'You asked: ', h('strong', {}, d.question)) : null,
-          h('div', { class: 'actions' }, action('Ask someone else', () => callTool('list_suspects', {}))),
-        )),
-        say(`${(s.name || '').split(' ').slice(-1)[0] || 'Suspect'}, did you see anything?`)];
+      return [portrait(s), h('div', { class: 'col' },
+        h('p', { class: 'kicker' }, `${s.name || 'Suspect'}, ${s.role || ''}`),
+        h('p', { class: 'quote' }, `“${d.answer || d.speech}”`),
+        d.question ? h('p', { class: 'field' }, 'You asked: ', h('strong', {}, d.question)) : null,
+        h('div', { class: 'actions' }, action('Ask someone else', () => callTool('list_suspects', {}))),
+        say(`${(s.name || '').split(' ').slice(-1)[0] || 'Suspect'}, did you see anything?`))];
     },
 
     clue: (d) => {
       const c = d.clue || {};
-      return [h('div', { class: 'body' },
-        h('div', { class: 'col' },
-          h('article', { class: 'paper enter' },
-            h('p', { class: 'kicker' }, c.kind === 'document' ? 'Document' : c.kind === 'testimony' ? 'Witness' : 'Evidence'),
-            h('h1', {}, c.title),
-            h('p', {}, c.text)),
-          h('div', { class: 'actions' }, action('All clues', () => callTool('examine_clue', {}))))),
-        say('Give me a hint')];
+      return [h('div', { class: 'col' },
+        h('article', { class: 'paper' },
+          h('p', { class: 'kicker' }, c.kind === 'document' ? 'Document' : c.kind === 'testimony' ? 'Witness' : 'Evidence'),
+          h('h1', {}, c.title),
+          h('p', {}, c.text)),
+        h('div', { class: 'actions' }, action('All clues', () => callTool('examine_clue', {}))),
+        say('Give me a hint'))];
     },
 
-    clues: (d) => [
-      h('p', { class: 'kicker' }, 'Evidence board'),
-      h('h1', { class: 'mid' }, d.round ? `Round ${d.round}: ${d.clues.length} clues pinned` : d.clues && d.clues.length ? `${d.clues.length} clues pinned` : 'Nothing pinned yet'),
-      h('div', { class: 'tiles paper-tiles' }, (d.clues || []).slice(0, 6).map((c, i) =>
-        h('button', { class: 'tile', style: `--r:${i % 2 ? 1 : -1.2}deg`, 'aria-label': `Read ${c.title}`, onclick: () => callTool('examine_clue', { clue: c.id }) },
-          h('span', { class: 'role' }, (d.newClueIds || []).includes(c.id) ? `New · ${c.kind}` : c.kind), h('span', { class: 'name' }, c.title)))),
-      say(d.clues && d.clues[0] ? `Examine ${d.clues[0].title.toLowerCase()}` : 'What is the case?'),
-    ],
+    clues: (d) => [h('div', { class: 'col' },
+      h('p', { class: 'kicker' }, d.round ? `Evidence board · round ${d.round}` : 'Evidence board'),
+      h('h1', { class: 'd5' }, d.clues && d.clues.length ? `${d.clues.length} clues pinned` : 'Nothing pinned yet'),
+      h('div', { class: 'tiles' }, (d.clues || []).slice(0, 5).map((c) =>
+        h('button', { class: 'tile clue-tile', 'aria-label': `Read ${c.title}`, onclick: () => callTool('examine_clue', { clue: c.id }) },
+          h('span', { class: 'role' }, (d.newClueIds || []).includes(c.id) ? h('span', { class: 'new' }, 'New') : null, (d.newClueIds || []).includes(c.id) ? ' · ' : '', c.kind),
+          h('span', { class: 'name' }, c.title)))),
+      say(d.clues && d.clues[0] ? `Examine ${d.clues[0].title.toLowerCase()}` : 'Next round'))],
 
-    hint: (d) => [
+    hint: (d) => [h('div', { class: 'col' },
       h('p', { class: 'kicker' }, 'A gentle nudge'),
-      h('h1', { class: 'mid' }, (d.hint && d.hint.text) || d.speech),
-      d.clue ? h('p', { class: 'field' }, 'Look at ', h('strong', {}, d.clue.title)) : null,
+      h('h1', { class: 'd5' }, (d.hint && d.hint.text) || d.speech),
+      d.clue ? h('p', { class: 'field' }, 'Look at ', h('strong', {}, d.clue.title), '.') : null,
       h('div', { class: 'actions' }, d.clue
         ? action('Read that clue', () => callTool('examine_clue', { clue: d.clue.id }))
-        : action('Show the board', () => callTool('case_summary', {}))),
-      say('Give me another hint'),
-    ],
+        : action('Show the case', () => callTool('case_summary', {}))),
+      say('Give me another hint'))],
 
     confirm: (d) => {
       const s = d.suspect || {};
-      return [h('div', { class: 'body' },
-        medal(s, true),
-        h('div', { class: 'col' },
-          h('p', { class: 'kicker' }, 'Final answer?'),
-          h('h1', {}, `Accuse ${s.name || 'them'}?`),
-          h('p', { class: 'field' }, d.item ? `With ${d.item.name}. ` : '', 'This ends the case.'),
-          h('div', { class: 'actions' },
-            action('Yes, accuse', () => callTool('accuse', { culprit: d.culprit || s.id, item: d.itemId, confirmed: true })),
-            action('Not yet', () => callTool('case_summary', {}), true)))),
-        say('Yes, accuse')];
+      return [portrait(s), h('div', { class: 'col' },
+        h('p', { class: 'kicker' }, 'Final answer?'),
+        h('h1', {}, `Accuse ${s.name || 'them'}?`),
+        h('p', { class: 'field' }, d.item ? `With ${d.item.name}. ` : '', 'This ends the case.'),
+        h('div', { class: 'actions' },
+          action('Yes, accuse', () => callTool('accuse', { culprit: d.culprit || s.id, item: d.itemId, confirmed: true })),
+          action('Not yet', () => callTool('case_summary', {}), true)),
+        say('Yes, accuse'))];
     },
 
     verdict: (d) => {
       const r = d.result || {};
-      return [h('div', { class: 'body' },
-        medal({ name: r.culprit && r.culprit.name }, true),
-        h('div', { class: 'col' },
-          h('p', { class: 'kicker ' + (r.correct ? 'verdict-good' : 'verdict-bad') }, r.correct ? 'Case closed. You solved it' : 'Not quite'),
-          h('h1', {}, r.culprit ? r.culprit.name : 'The culprit'),
-          h('p', { class: 'field' }, r.explanation || (r.means ? `With ${r.means.name}.` : '')),
-          h('div', { class: 'actions' }, action('Play again', () => callTool('start_case', { tone: 'classic' }))))),
-        say('Start a new case')];
+      const who = d.culprit || { name: r.culprit && r.culprit.name };
+      return [portrait(who), h('div', { class: 'col' },
+        h('p', { class: 'kicker ' + (r.correct ? 'verdict-good' : 'verdict-bad') }, r.correct ? 'Case closed. You solved it' : 'Not quite'),
+        h('h1', {}, r.culprit ? r.culprit.name : 'The culprit'),
+        h('p', { class: 'field' }, r.explanation || (r.means ? `With ${r.means.name}.` : '')),
+        h('div', { class: 'actions' }, action('Play again', () => callTool('start_case', { tone: 'classic' }))),
+        say('Start a new case'))];
     },
 
-    notice: (d) => [
+    notice: (d) => [h('div', { class: 'col' },
       h('p', { class: 'kicker' }, 'Accomplice'),
-      h('h1', { class: 'mid' }, d.speech || 'Done.'),
-      h('div', { class: 'actions' }, action('Show the board', () => callTool('case_summary', {}))),
-    ],
+      h('h1', { class: 'd5' }, d.speech || 'Done.'),
+      h('div', { class: 'actions' }, action('Show the case', () => callTool('case_summary', {}))))],
   };
 
+  function paint(children) {
+    stage.replaceChildren(
+      h('div', { class: 'brandbar' }, h('i', { 'aria-hidden': 'true' }), 'ACCOMPLICE'),
+      h('section', { class: 'card enter' }, children));
+    notify('ui/notifications/size-changed', { width: root.scrollWidth, height: root.scrollHeight });
+  }
   function render(data) {
     last = data;
-    const view = views[data.view] || views.notice;
-    const section = h('section', { class: 'col enter', style: 'display:flex;flex-direction:column;height:100%' }, view(data));
-    stage.replaceChildren(section);
-    notify('ui/notifications/size-changed', { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight });
+    paint((views[data.view] || views.notice)(data));
   }
 
   // ---------- start ----------
   render({ view: 'empty' });
   if (host) {
     request('ui/initialize', {
-      appInfo: { name: 'accomplice-board', version: '0.1.0' },
+      appInfo: { name: 'accomplice-board', version: '0.2.0' },
       appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
       protocolVersion: PROTOCOL,
     }).then((res) => {
       applyContext(res && res.hostContext);
       notify('ui/notifications/initialized', {});
-    }).catch(() => { /* host may not speak the bridge; the board still renders */ });
+    }).catch(() => { /* the board still renders without a host */ });
   }
 })();
 </script>

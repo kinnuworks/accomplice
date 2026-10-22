@@ -46,6 +46,11 @@ await sayIt('ask the cook where she was at nine');
 await boardShows('pie timer');
 await shot('05-suspect-reply');
 
+// the same card in light mode
+await page.getByRole('button', { name: /Switch the display to light mode/ }).click();
+await shot('05c-reply-light');
+await page.getByRole('button', { name: /Switch the display to dark mode/ }).click();
+
 // touch works too: the board calls tools through the host bridge
 await board().getByRole('button', { name: 'Ask someone else' }).click();
 await boardShows('Who will you question?');
@@ -58,7 +63,7 @@ await boardShows('Muddy boot prints');
 await shot('06-clue');
 
 await sayIt('next round');
-await boardShows('Round 2');
+await boardShows('round 2');
 await shot('06b-next-round');
 
 await sayIt('give me a hint');
@@ -71,6 +76,9 @@ await shot('08-elicitation');
 await page.getByRole('dialog').getByRole('button', { name: 'Yes' }).click();
 await boardShows('You solved it');
 await shot('09-verdict');
+await page.getByRole('button', { name: /Switch the display to light mode/ }).click();
+await shot('09b-verdict-light');
+await page.getByRole('button', { name: /Switch the display to dark mode/ }).click();
 
 // open one tool call in the developer drawer
 await page.locator('.t.request .t-method', { hasText: 'elicitation/create' }).first().click();

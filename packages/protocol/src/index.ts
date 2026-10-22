@@ -1,7 +1,7 @@
 // Shared types for Accomplice. Engine, server, TV and phone all import from here.
 
 export type Tone = 'classic' | 'cozy';
-export type Phase = 'lobby' | 'briefing' | 'investigate' | 'accuse' | 'reveal' | 'results';
+export type Phase = 'lobby' | 'briefing' | 'tutorial' | 'investigate' | 'accuse' | 'reveal' | 'results';
 export type Role = 'detective' | 'accomplice';
 
 // ---------- Case model (full, server-side only) ----------
@@ -12,6 +12,7 @@ export interface Slot { id: number; label: string } // e.g. { id: 0, label: '8:0
 export interface Suspect {
   id: string;
   name: string;
+  shortName?: string;      // for tight spaces and speech: "Colonel Gage", "Dr Sen", "Freddie"
   role: string;            // "the cook"
   traits: string[];        // speaking style hints: ["clipped", "nervous laugh"]
   voiceId: string;         // TTS voice id
@@ -33,6 +34,7 @@ export interface Clue {
   id: string;
   kind: 'physical' | 'document' | 'testimony';
   title: string;           // short card title
+  short?: string;          // card face line, 12 words or fewer, readable at 3 m
   text: string;            // card text (player facing)
   visibility: 'board' | 'private';
   round: 1 | 2 | 3;
@@ -41,7 +43,7 @@ export interface Clue {
   holderPlayerSlot?: number; // for private clues: which player seat receives it (0..5)
 }
 
-export interface Lie { s: string; slot: number; claimedRoom: string; trueRoom: string; reason: 'guilt' | 'embarrassment' }
+export interface Lie { s: string; slot: number; claimedRoom: string; trueRoom: string; reason: 'guilt' | 'embarrassment'; detail?: string } // detail: what they were really doing (embarrassment lies)
 
 export interface Case {
   id: string;
@@ -52,6 +54,8 @@ export interface Case {
   place: string;
   dateLine: string;
   intro: string;           // narrator paragraph
+  scene?: string;          // scene art asset key, e.g. "scenes/ashby-hall.webp"
+  briefing?: string[];     // 4 to 6 short narrator lines, one per briefing slide
   victim: { name: string; description: string };
   crime: { room: string; slot: number; item: string; what: string }; // what: "was struck down" | "the cake vanished"
   rooms: Room[];
@@ -97,6 +101,8 @@ export interface AccompliceLie { text: string; fact: Fact }
 
 export interface PublicCase {
   id: string; tone: Tone; title: string; place: string; dateLine: string; intro: string;
+  scene?: string;
+  briefing?: string[];
   victim: { name: string; description: string };
   crime: { room: string; slot: number; what: string };
   rooms: Room[]; slots: Slot[];
@@ -104,7 +110,7 @@ export interface PublicCase {
   items: Item[];
 }
 
-export interface Player { id: string; name: string; seat: number; connected: boolean; avatar: string; questionsLeft: number }
+export interface Player { id: string; name: string; seat: number; connected: boolean; avatar: string; questionsLeft: number; lang?: Lang }
 
 export interface Utterance {
   id: string;
@@ -115,13 +121,31 @@ export interface Utterance {
   at: number;
   askedBy?: string;        // player id who asked
   question?: string;
+  marks?: WordMark[];      // word timings for karaoke captions (ms from audio start)
+  translated?: string;     // per-phone copy only: text in that player's language
+  // Streaming answers: the same utterance id is sent again as each sentence is voiced. Play parts in order;
+  // when partial is false the answer is complete. audioUrl/marks above mirror parts[0] for older clients.
+  parts?: UtterancePart[];
+  partial?: boolean;
+  // Caption frames: each entry is one screen of at most 2 lines (joined by \n), each line <= 40 characters.
+  // `text` is always the written form for captions; `speech` (announce only) is what the voice says when it differs.
+  captionChunks?: string[];
+  filler?: boolean;        // a short "Hmm." while the suspect thinks; play it, keep it out of the transcript
 }
+
+export interface UtterancePart { id: string; text: string; audioUrl?: string; marks?: WordMark[]; durationMs?: number; captionChunks?: string[] }
+
+export interface WordMark { time: number; value: string; start?: number; end?: number }
+
+export type Lang = 'en' | 'hi';
 
 export interface BoardState {
   revealed: string[];      // clue ids on the board
   pinned: string[];        // clue ids pinned by the room
   links: [string, string][]; // string links between pinned clue ids
   lastVerdict?: { theory: Theory; verdict: TheoryVerdict; at: number };
+  cards?: Clue[];
+  smudged?: string[];      // clue ids the accomplice smudged this round: show the card blurred, text hidden          // card contents for revealed (and pinned) clues, so the TV can draw them
 }
 
 export interface RoomState {
@@ -137,7 +161,14 @@ export interface RoomState {
   speaking: string | null; // suspect id currently talking
   queue: { playerId: string; suspectId: string }[];
   votes: { count: number; needed: number };
-  reveal?: { culprit: string; accomplice: string | null; item: string; steps: ProofStep[]; scores: Record<string, number> };
+  reveal?: { culprit: string; accomplice: string | null; item: string; steps: ProofStep[]; scores: Record<string, number>; accompliceCaught?: boolean; accompliceLine?: string;
+    sabotage?: { by: string; byName: string; clueId: string; clueTitle: string; round: number; at: number }[];
+    hunches?: { byPlayer: Record<string, { right: number; total: number }>; right: number; total: number };
+  };
+  house?: { id: 'house'; name: string; role: string; portrait?: string }; // non-suspect who answers the practice question
+  emergency?: { stage: 'vote' | 'ask' | 'done'; closesAt: number; votes: Record<string, number>; voters: string[]; suspectId?: string; askedBy?: string };
+  hunch?: { utteranceId: string; lying: number; truth: number; closesAt: number }; // open hunch vote on the last answer
+  audience?: { id: string; name: string; connected: boolean }[];
   deadlineAt?: number;     // optional soft timer (always extendable)
 }
 
@@ -149,6 +180,10 @@ export interface YouState {
   safeLies?: AccompliceLie[];
   notes: string;
   vote?: { culprit: string; item?: string; accomplice?: string };
+  lang?: Lang;
+  audience?: boolean;      // joined beyond the player cap or late: hunch votes only
+  tutorialQuestionUsed?: boolean;
+  sabotage?: { available: boolean; options: string[] }; // accomplice only: board clues that are safe to smudge
 }
 
 // ---------- Messages ----------
@@ -156,18 +191,27 @@ export interface YouState {
 export type ClientToServer =
   | { t: 'tv:create'; tone?: Tone }
   | { t: 'tv:start' }
+  | { t: 'tv:setTone'; tone: Tone }
   | { t: 'tv:next' }                               // advance phase/round (host remote)
   | { t: 'tv:pin'; clueId: string }
   | { t: 'tv:unpin'; clueId: string }
   | { t: 'tv:link'; a: string; b: string }
   | { t: 'tv:proveIt'; theory: Theory }
-  | { t: 'phone:join'; room: string; name: string; playerId?: string }
+  | { t: 'phone:join'; room: string; name: string; playerId?: string; avatar?: string }
   | { t: 'phone:setTone'; tone: Tone }
   | { t: 'phone:start' }
   | { t: 'phone:ask'; suspectId: string; text: string; via: 'voice' | 'typed' }
   | { t: 'phone:notes'; text: string }
   | { t: 'phone:vote'; culprit: string; item?: string; accomplice?: string }
   | { t: 'phone:readClues' }
+  | { t: 'phone:moreTime' }
+  | { t: 'phone:propose'; culprit: string; item?: string }       // put a theory to the room
+  | { t: 'phone:voteProposal'; proposalId: string; agree: boolean }
+  | { t: 'phone:emergencyVote'; suspectId: string }   // blackout: choose who must answer one extra question
+  | { t: 'phone:sabotage'; clueId: string }           // accomplice, once per game
+  | { t: 'phone:hunch'; utteranceId: string; lying: boolean }                         // push the soft timer back (never a hard limit)
+  | { t: 'phone:setLang'; lang: Lang }
+  | { t: 'tv:spoken'; id: string }                 // TV finished playing an utterance (frees the queue early)
   | { t: 'ping' };
 
 export type ServerToClient =
@@ -176,9 +220,29 @@ export type ServerToClient =
   | { t: 'room:created'; code: string; joinUrl: string }
   | { t: 'utterance'; u: Utterance }               // play audio + caption
   | { t: 'sfx'; name: SfxName }
-  | { t: 'announce'; text: string; audioUrl?: string } // narrator line, also for screen readers
-  | { t: 'verdict'; theory: Theory; verdict: TheoryVerdict; explanation: string }
+  | { t: 'announce'; text: string; speech?: string; captionChunks?: string[]; audioUrl?: string; marks?: WordMark[]; id?: string; translated?: string } // narrator line, also for screen readers
+  | { t: 'verdict'; theory: Theory; verdict: TheoryVerdict; explanation: string; proposalId?: string }
+  | { t: 'proposal'; id: string; by: string; byName: string; culprit: string; item?: string; votes: { agree: string[]; notYet: string[] }; needed: number; closesAt: number }
+  | { t: 'proposal:votes'; id: string; agree: string[]; notYet: string[]; needed: number }
+  | { t: 'event'; kind: 'blackout' | 'emergency' | 'smudge'; text: string; clueId?: string; suspectId?: string }
+  | { t: 'hunch'; utteranceId: string; lying: number; truth: number }
   | { t: 'error'; message: string }
   | { t: 'pong' };
 
-export type SfxName = 'join' | 'start' | 'cardFlip' | 'pin' | 'string' | 'thinking' | 'bell' | 'gavel' | 'reveal' | 'win' | 'lose' | 'tick';
+export type SfxName = 'join' | 'start' | 'cardFlip' | 'pin' | 'string' | 'thinking' | 'bell' | 'gavel' | 'reveal' | 'win' | 'lose' | 'tick' | 'thunder' | 'smudge';
+
+// ---------- Speech input socket: /stt?room=CODE&pid=<playerId> ----------
+// Client sends one JSON {t:'start'}, then binary frames of 16 kHz mono PCM16 (little endian), then {t:'stop'}.
+// If start carries suspectId and autoAsk, the server submits the final transcript as a question itself.
+export type SttClientMsg =
+  | { t: 'start'; lang?: Lang; suspectId?: string; autoAsk?: boolean; sampleRate?: number }
+  | { t: 'stop' }
+  | { t: 'end' };                                  // same as stop: flush and send the final transcript
+
+export type SttServerMsg =
+  | { t: 'ready' }
+  | { t: 'partial'; text: string }
+  | { t: 'final'; text: string; final: string; raw?: string }   // final mirrors text; raw = before suspect-name correction
+  | { t: 'asked'; suspectId: string; text: string }
+  | { t: 'error'; message: string }
+  | { t: 'closed' };

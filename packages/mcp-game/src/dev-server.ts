@@ -1,6 +1,7 @@
 // Run the add-on alone, backed by the fake game, for working on the Echo simulator
 // without the full game server:  pnpm --filter @accomplice/mcp-game dev
 import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
 import { createMcpHandler } from './handler.ts';
 import { createFakeGameApi } from './fake.ts';
 import type { GameApi } from './types.ts';
@@ -15,6 +16,14 @@ const mcp = createMcpHandler((household) => {
 const port = Number(process.env.PORT ?? 8787);
 createServer((req, res) => {
   if (req.url?.startsWith('/mcp')) return void mcp(req, res);
+  // portraits, the way the game server serves them from the TV app
+  const art = req.url?.match(/^\/tv\/art\/(portraits\/[a-z0-9-]+\.webp)$/);
+  if (art) {
+    readFile(new URL(`../../../apps/tv-web/public/art/${art[1]}`, import.meta.url))
+      .then((buf) => { res.writeHead(200, { 'content-type': 'image/webp', 'cache-control': 'max-age=3600' }); res.end(buf); })
+      .catch(() => { res.writeHead(404).end(); });
+    return;
+  }
   if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}'); return; }
   res.writeHead(404).end();
 }).listen(port, () => {
