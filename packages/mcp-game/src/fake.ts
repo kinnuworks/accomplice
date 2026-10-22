@@ -2,6 +2,7 @@
 // Two hand-written cases, one per tone. Fair, small, and fully deterministic.
 
 import type {
+  CaseRef, Handoff,
   RoundResult,
   AccuseResult, CaseSummary, ClueCard, GameApi, Hint, StartOptions, SuspectCard, SuspectReply, Tone,
 } from './types.ts';
@@ -102,7 +103,7 @@ const COZY: FakeCase = {
     dateLine: 'A sunny Sunday afternoon',
     intro: 'Grandma June baked a three tier lemon cake for the village party. At three o\'clock she turned around and it was gone. Only crumbs remain. Somebody here has frosting on their conscience.',
     victim: { name: 'The lemon birthday cake', description: 'Three tiers, lemon curd, and a sugar rose on top.' },
-    crime: { room: 'the bakery counter', time: '3:00 pm', what: 'vanished' },
+    crime: { room: 'the bakery', time: '3:00 pm', what: 'vanished' },
     items: [
       { id: 'cakebox', name: 'the big pink cake box' },
       { id: 'wagon', name: 'the red wagon' },
@@ -166,6 +167,8 @@ const COZY: FakeCase = {
 export interface FakeGameOptions {
   /** Milliseconds per generation step. Default 250. */
   stepMs?: number;
+  /** Room code this game pretends to have on the TV. */
+  roomCode?: string;
 }
 
 /** Thrown for unknown ids so the add-on can answer kindly. */
@@ -175,6 +178,7 @@ export class NoCaseError extends Error {
 }
 
 export function createFakeGameApi(opts: FakeGameOptions = {}): GameApi & { readonly accusations: number } {
+  const roomCode = opts.roomCode ?? 'MRLW';
   const stepMs = opts.stepMs ?? 250;
   let current: FakeCase | null = null;
   let solved = false;
@@ -193,6 +197,7 @@ export function createFakeGameApi(opts: FakeGameOptions = {}): GameApi & { reado
     boardClueCount: c.clues.filter((x) => (x.round ?? 1) <= round).length,
     phase: solved ? 'results' : 'investigate',
     round,
+    roomCode,
     solved,
   });
   const card = ({ where: _w, why: _y, saw: _s, other: _o, ...pub }: FakeSuspect): SuspectCard => pub;
@@ -244,6 +249,18 @@ export function createFakeGameApi(opts: FakeGameOptions = {}): GameApi & { reado
 
     listBoardClues() {
       return need().clues.filter((x) => (x.round ?? 1) <= round);
+    },
+
+    resumeCase(ref: CaseRef) {
+      const c = [CLASSIC, COZY].find((x) => x.summary.id === ref.caseId) ?? (ref.roomCode === roomCode ? current : null);
+      if (!c) return null;
+      if (current !== c) { current = c; solved = false; hintIndex = 0; asked.clear(); round = Math.min(3, Math.max(1, ref.round ?? 1)); }
+      return summary(c);
+    },
+
+    handoff(): Handoff {
+      need();
+      return { roomCode, tvPath: `/tv/?room=${roomCode}`, joinPath: `/p?room=${roomCode}` };
     },
 
     nextRound(): RoundResult {

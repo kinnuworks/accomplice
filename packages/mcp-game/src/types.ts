@@ -20,6 +20,8 @@ export interface CaseSummary {
   suspectCount: number;
   boardClueCount: number;
   phase?: string;           // lobby | briefing | investigate | accuse | reveal | results
+  roomCode?: string;        // the TV room this case lives in, when there is one
+  seed?: number;
   round?: number;
   solved?: boolean;
   introAudioUrl?: string;
@@ -72,6 +74,8 @@ export interface StartProgress { progress: number; total: number; message: strin
 
 export interface StartOptions {
   onProgress?: (p: StartProgress) => void;
+  /** Same seed, same case. Used for the case of the week. */
+  seed?: number;
   signal?: AbortSignal;
 }
 
@@ -91,6 +95,21 @@ export interface GameApi {
   hint(): Awaitable<Hint>;
   /** Optional: move to the next round and pin its clues. Without it, new clues arrive on their own. */
   nextRound?(): Awaitable<RoundResult>;
+  /** Optional: reopen a case this household started earlier (maybe in another session or on the TV). Null when it is gone. */
+  resumeCase?(ref: CaseRef): Awaitable<CaseSummary | null>;
+  /** Optional: where the TV and phones can pick this case up. */
+  handoff?(): Awaitable<Handoff>;
+  /** Optional: the narrator's voice for a line, the same voice the TV uses. */
+  narrate?(text: string): Awaitable<{ audioUrl?: string }>;
+}
+
+export interface CaseRef { caseId?: string; roomCode?: string; tone?: Tone; seed?: number; round?: number }
+
+export interface Handoff {
+  roomCode: string;
+  tvPath: string;           // e.g. "/tv/?room=ABCD"
+  joinPath: string;         // phones: "/p?room=ABCD"
+  qrService?: string;       // a path that turns ?text=<url> into a QR code image, e.g. "/api/qr"
 }
 
 export interface RoundResult { round: number; phase?: string; newClues: ClueCard[] }

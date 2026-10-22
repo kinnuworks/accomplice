@@ -5,7 +5,7 @@ import { Dialog } from '../components/Dialog';
 import { Hints } from '../components/Hints';
 import { Flourish } from '../components/Ornament';
 
-export function Title({ onHost }: { onHost: (tone: Tone) => void }) {
+export function Title({ onHost, onSettings }: { onHost: (tone: Tone) => void; onSettings: () => void }) {
   const [help, setHelp] = useState(false);
   return (
     <main className="screen title-screen">
@@ -25,6 +25,7 @@ export function Title({ onHost }: { onHost: (tone: Tone) => void }) {
             <span className="btn-ok" aria-hidden="true">OK</span> Host a game
           </button>
           <button className="btn btn-ghost" data-nav onClick={() => setHelp(true)}>How to play</button>
+          <button className="btn btn-ghost" data-nav onClick={onSettings}>Settings</button>
         </div>
         <p className="title-press">Press <b>OK</b> to host a game. Grab 3 to 6 friends and their phones.</p>
       </div>

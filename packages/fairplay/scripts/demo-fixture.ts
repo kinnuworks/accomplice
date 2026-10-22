@@ -4,7 +4,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generateCase, proofChain, publicView, safeLiesForAccomplice, shutdownSolver, verifyCase } from '../src/index.js';
+import { generateCase, objectionSlip, proofChain, publicView, safeLiesForAccomplice, shutdownSolver, verifyCase } from '../src/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const out = resolve(here, '../../protocol/fixtures/demo-case.json');
@@ -29,6 +29,11 @@ for (;; seed++) {
     accomplicePlayerSeat: 4,
     safeLies: safeLiesForAccomplice(c),
     proofChain: proofChain(c),
+    confession: c.confession,
+    headline: c.headline,
+    paperName: c.paperName,
+    clockChimes: c.clockChimes,
+    objections: Object.fromEntries(c.suspects.map((s) => [s.id, objectionSlip(c, s.id)])),
   };
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, JSON.stringify(fixture, null, 2) + '\n');

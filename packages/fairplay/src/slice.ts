@@ -128,6 +128,8 @@ export function publicView(c: Case): PublicCase {
     intro: c.intro,
     scene: c.scene,
     briefing: c.briefing ? [...c.briefing] : undefined,
+    paperName: c.paperName,
+    clockChimes: c.clockChimes ? [...c.clockChimes] : undefined,
     victim: { ...c.victim },
     crime: { room: c.crime.room, slot: c.crime.slot, what: c.crime.what },
     rooms: c.rooms.map((r) => ({ ...r, adjacent: [...r.adjacent] })),

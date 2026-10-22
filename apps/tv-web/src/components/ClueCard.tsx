@@ -2,12 +2,19 @@ import { memo } from 'react';
 import type { BoardClue } from '../net/types';
 import { KindIcon } from './Ornament';
 
-const KIND_LABEL = { physical: 'Physical', document: 'Document', testimony: 'Testimony' } as const;
+export const KIND_LABEL = { physical: 'Physical', document: 'Document', testimony: 'Testimony' } as const;
 
-export function hashTilt(id: string, range = 3): number {
+export function hashTilt(id: string, range = 1): number {
   let h = 0;
   for (const c of id) h = (h * 33 + c.charCodeAt(0)) | 0;
   return ((Math.abs(h) % 1000) / 1000) * range * 2 - range;
+}
+
+/** Card face line: the case's short text, else the first sentence. */
+export function faceText(c: BoardClue): string {
+  if (c.short) return c.short;
+  const first = c.text.split(/(?<=[.!?])\s/)[0];
+  return first.length <= 90 ? first : `${first.slice(0, 86).replace(/\s+\S*$/, '')}...`;
 }
 
 interface Props {
@@ -17,17 +24,19 @@ interface Props {
   fresh?: boolean;
   nav?: boolean;
   autofocus?: boolean;
+  full?: boolean;
   onClick?: () => void;
   style?: React.CSSProperties;
   className?: string;
   linkedCount?: number;
+  smudged?: boolean;
 }
 
-export const ClueCard = memo(function ClueCard({ clue, pinned, linkSource, fresh, nav, autofocus, onClick, style, className = '', linkedCount = 0 }: Props) {
-  const label = `${clue.title}. ${clue.text}. ${pinned ? 'Pinned.' : 'Not pinned.'}${linkedCount ? ` Tied to ${linkedCount} other clue${linkedCount > 1 ? 's' : ''}.` : ''}`;
+export const ClueCard = memo(function ClueCard({ clue, pinned, linkSource, fresh, nav, autofocus, full, onClick, style, className = '', linkedCount = 0, smudged }: Props) {
+  const label = smudged ? `Clue, ${clue.kind}, ${clue.title}. Smudged: someone spilled ink on it.` : `Clue, ${clue.kind}, ${clue.title}. ${clue.text} ${pinned ? 'Pinned.' : 'Not pinned.'}${linkedCount ? ` Tied to ${linkedCount} other clue${linkedCount > 1 ? 's' : ''}.` : ''}`;
   return (
     <button
-      className={`clue-card kind-${clue.kind} ${pinned ? 'is-pinned' : ''} ${linkSource ? 'is-source' : ''} ${fresh ? 'is-fresh' : ''} ${className}`}
+      className={`clue-card kind-${clue.kind} ${clue.title.length > 17 ? 'long-title' : ''} ${smudged ? 'is-smudged' : ''} ${pinned ? 'is-pinned' : ''} ${linkSource ? 'is-source' : ''} ${fresh ? 'is-fresh' : ''} ${className}`}
       style={{ ['--tilt' as string]: `${hashTilt(clue.id)}deg`, ...style }}
       data-nav={nav ? '' : undefined}
       data-nav-id={`clue-${clue.id}`}
@@ -40,10 +49,10 @@ export const ClueCard = memo(function ClueCard({ clue, pinned, linkSource, fresh
     >
       <span className="clue-inner">
         <span className="clue-kind"><KindIcon kind={clue.kind} />{KIND_LABEL[clue.kind]}</span>
-        <span className="clue-round" aria-hidden="true">R{clue.round}</span>
+        {pinned && <span className="clue-pinned-tag" aria-hidden="true">Pinned{linkedCount ? ` +${linkedCount}` : ''}</span>}
         <span className="clue-title">{clue.title}</span>
-        <span className="clue-text">{clue.text}</span>
-        {pinned && <span className="clue-pinned-tag"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 3 3H7l3-3zM12 12v9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>Pinned{linkedCount ? ` · ${linkedCount} string${linkedCount > 1 ? 's' : ''}` : ''}</span>}
+        <span className="clue-text">{full ? clue.text : faceText(clue)}</span>
+        {smudged && <span className="smudge" aria-hidden="true"><svg viewBox="0 0 200 120" preserveAspectRatio="none"><path d="M20 60 C10 20 60 10 90 25 C120 0 180 15 170 50 C200 70 180 110 140 100 C110 125 60 115 45 95 C10 100 0 80 20 60Z" /><circle cx="175" cy="20" r="7" /><circle cx="25" cy="105" r="5" /></svg><b>Smudged</b></span>}
       </span>
       <span className="clue-pin" aria-hidden="true">
         <svg viewBox="0 0 40 40"><defs><radialGradient id={`pin-${clue.id}`} cx="0.35" cy="0.3" r="0.7"><stop offset="0" stopColor="#ffe7a8" /><stop offset="0.5" stopColor="#d6a03c" /><stop offset="1" stopColor="#7a5115" /></radialGradient></defs><circle cx="20" cy="20" r="13" fill={`url(#pin-${clue.id})`} /><ellipse cx="15" cy="14" rx="4" ry="2.5" fill="#fff" opacity="0.6" /></svg>

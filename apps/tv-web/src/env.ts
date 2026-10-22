@@ -1,4 +1,5 @@
 // Runtime flags read once from the URL.
+import { getSettings } from './settings';
 const q = new URLSearchParams(location.search);
 
 export const DEMO = q.has('demo') && q.get('demo') !== '0';
@@ -11,12 +12,9 @@ export const STILL = q.has('still');
 export const MUTED = q.has('mute');
 export const BASE = import.meta.env.BASE_URL;
 
-const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
-export function reducedMotion(): boolean {
-  if (q.get('motion') === 'reduced') return true;
-  if (q.get('motion') === 'full') return false;
-  return !!motionQuery?.matches;
-}
+/** Show the DEMO badge (off by default so screenshots look like the real thing). */
+export const BADGE = q.has('badge');
+export function reducedMotion(): boolean { return getSettings().reduceMotion; }
 
 export function asset(path: string): string {
   if (/^(https?:|data:|\/)/.test(path)) return path;

@@ -29,6 +29,7 @@
     --bad: #FF9E8C;
     --serif: "Playfair Display", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     --sans: "Amazon Ember", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --type: "Special Elite", "American Typewriter", "Courier Prime", "Courier New", monospace;
     color-scheme: dark;
   }
   :root[data-theme="light"] {
@@ -108,12 +109,51 @@
   @media (prefers-reduced-motion: reduce) { .enter, .dots i { animation: none; } }
   .busy .card { opacity: .7; }
 
+
+  /* ---- case file: a manila folder, the one paper object on this view ---- */
+  .folder { position: relative; flex: 1; align-self: stretch; background: var(--paper); color: var(--paper-ink); border-radius: 4rem 12rem 12rem 12rem; padding: 24rem; display: flex; flex-direction: column; margin-top: 12rem; box-shadow: 0 8rem 24rem rgba(0,0,0,.3); }
+  .folder::before { content: "CASE FILE"; position: absolute; top: -18rem; left: 0; height: 20rem; padding: 4rem 16rem 0; border-radius: 8rem 8rem 0 0; background: var(--paper); font: 700 10rem/1.6 var(--type); letter-spacing: .12em; color: #6B5641; }
+  .folder .kicker { color: #7E5F17; font-family: var(--type); letter-spacing: .06em; }
+  .folder h1 { color: var(--paper-ink); }
+  .folder .field { color: #5E4A3A; }
+  .folder .field strong { color: var(--paper-ink); }
+  .lineup { display: flex; gap: 8rem; margin-top: 8rem; }
+  .lineup .portrait { width: 48rem; height: 48rem; box-shadow: 0 0 0 2rem var(--paper), 0 0 0 3rem rgba(43,29,20,.25); }
+  .card.bare { background: transparent; box-shadow: none; padding: 0; }
+
+  /* ---- verdict stamp: real rubber-stamp inks, a shape and a word per verdict ---- */
+  .sheet { position: relative; flex: 1; align-self: stretch; background: var(--paper); color: var(--paper-ink); border-radius: 8rem; padding: 24rem; display: flex; gap: 24rem; align-items: center; box-shadow: 0 8rem 24rem rgba(0,0,0,.3); }
+  .sheet h1 { color: var(--paper-ink); }
+  .sheet .field { color: #5E4A3A; }
+  .sheet .kicker { font-family: var(--type); color: #6B5641; }
+  .stamp { position: absolute; right: 28rem; top: 22rem; font: 700 20rem/1 var(--type); letter-spacing: .08em; text-transform: uppercase; display: grid; place-items: center; text-align: center; filter: url(#ink); opacity: .9; transform: rotate(-9deg); animation: slam .32s cubic-bezier(.2,1.6,.4,1) both .25s; }
+  .stamp.proven { color: #1D4F91; width: 132rem; height: 132rem; border-radius: 9999rem; border: 5rem solid currentColor; box-shadow: inset 0 0 0 3rem var(--paper), inset 0 0 0 5rem currentColor; }
+  .stamp.ruled { color: #A8231B; padding: 12rem 16rem; border: 4rem solid currentColor; }
+  .stamp.ruled::after { content: ""; position: absolute; left: -6rem; right: -6rem; top: 50%; height: 4rem; background: currentColor; transform: rotate(-14deg); }
+  .stamp small { display: block; font-size: 10rem; letter-spacing: .14em; margin-top: 4rem; }
+  @keyframes slam { 0% { opacity: 0; transform: rotate(-9deg) scale(1.35); } 70% { opacity: .95; transform: rotate(-9deg) scale(.97); } 100% { opacity: .9; transform: rotate(-9deg) scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .stamp { animation: none; } }
+
+  /* ---- record and handoff ---- */
+  .stats { display: flex; gap: 12rem; margin: 4rem 0 8rem; }
+  .stat { background: var(--inner); border-radius: 12rem; padding: 12rem 16rem; min-width: 104rem; }
+  .stat b { display: block; font: 700 32rem/1.05 var(--serif); color: var(--text); }
+  .stat span { font-size: 12rem; color: var(--muted); }
+  .code { font: 700 48rem/1 var(--type); letter-spacing: .3em; color: var(--text); margin: 4rem 0 12rem; }
+  .qr { flex: none; width: 152rem; height: 152rem; background: #fff; border-radius: 12rem; padding: 8rem; }
+  .qr img { width: 100%; height: 100%; display: block; }
+  .tvglyph { flex: none; width: 152rem; height: 112rem; border: 4rem solid var(--brand); border-radius: 10rem; display: grid; place-items: center; font: 700 24rem var(--type); color: var(--brand-text); position: relative; }
+  .tvglyph::after { content: ""; position: absolute; bottom: -20rem; left: 50%; width: 56rem; height: 4rem; margin-left: -28rem; background: var(--brand); border-radius: 4rem; }
+
   /* smaller hosts (phone or web) get a compact layout */
   .dc-mobile .card { flex-direction: column; align-items: flex-start; }
   .dc-mobile .portrait { width: 72rem; height: 72rem; }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="ink"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/><feComponentTransfer><feFuncA type="discrete" tableValues="0 .85 1 1"/></feComponentTransfer></filter>
+</svg>
 <main id="stage" aria-live="polite"></main>
 <script>
 (() => {
@@ -207,6 +247,7 @@
     } else { box.textContent = initials(s && s.name); box.setAttribute('aria-hidden', 'true'); }
     return box;
   }
+  const caseNo = (id) => { let n = 7; for (const ch of String(id || '')) n = (n * 31 + ch.charCodeAt(0)) % 9973; return String(n).padStart(4, '0'); };
   const action = (label, fn, secondary) => h('button', { class: secondary ? 'action secondary' : 'action', onclick: fn }, label);
   const say = (text) => h('p', { class: 'say' }, 'Try saying ', h('q', {}, text));
 
@@ -237,15 +278,20 @@
 
     case: (d) => {
       const c = d.case || {};
-      return [h('div', { class: 'col' },
-        h('p', { class: 'kicker' }, c.solved ? 'Case closed' : `Case file${c.round ? ` · round ${c.round}` : ''}`),
+      const lineup = (d.suspects || []).slice(0, 5);
+      const progress = d.progress;
+      return [h('article', { class: 'folder' },
+        h('p', { class: 'kicker' }, d.resumed ? 'Welcome back' : d.weekly ? 'Case of the week' : c.solved ? 'Case closed' : `No. ${caseNo(c.id)}${c.round ? ` · round ${c.round}` : ''}`),
         h('h1', {}, c.title || 'The case'),
         h('p', { class: 'field' }, h('strong', {}, `${c.victim ? c.victim.name : 'Someone'} ${c.crime ? c.crime.what : ''}`), c.crime ? ` in ${c.crime.room} at ${c.crime.time}.` : ''),
-        h('p', { class: 'field' }, `${c.suspectCount || 0} suspects, ${c.boardClueCount || 0} clues on the board.`),
+        progress && progress.questionsAsked
+          ? h('p', { class: 'field' }, `You had asked ${progress.questionsAsked} question${progress.questionsAsked === 1 ? '' : 's'}. ${c.boardClueCount || 0} clues on the board.`)
+          : h('p', { class: 'field' }, `${c.suspectCount || 0} suspects, ${c.boardClueCount || 0} clues on the board.`),
+        lineup.length ? h('div', { class: 'lineup', 'aria-label': 'Suspects' }, lineup.map((x) => portrait(x, true))) : null,
         h('div', { class: 'actions' }, c.solved
           ? action('Play again', () => callTool('start_case', { tone: c.tone || 'classic' }))
           : action('Meet the suspects', () => callTool('list_suspects', {}))),
-        say(c.solved ? 'Start a new case' : 'Who are the suspects?'))];
+        h('p', { class: 'say', style: 'color:#5E4A3A' }, 'Try saying ', h('q', { style: 'color:#2B1D14' }, c.solved ? 'Start a new case' : 'Who are the suspects?')))];
     },
 
     suspects: (d) => [h('div', { class: 'col' },
@@ -310,13 +356,45 @@
     verdict: (d) => {
       const r = d.result || {};
       const who = d.culprit || { name: r.culprit && r.culprit.name };
-      return [portrait(who), h('div', { class: 'col' },
-        h('p', { class: 'kicker ' + (r.correct ? 'verdict-good' : 'verdict-bad') }, r.correct ? 'Case closed. You solved it' : 'Not quite'),
-        h('h1', {}, r.culprit ? r.culprit.name : 'The culprit'),
-        h('p', { class: 'field' }, r.explanation || (r.means ? `With ${r.means.name}.` : '')),
-        h('div', { class: 'actions' }, action('Play again', () => callTool('start_case', { tone: 'classic' }))),
-        say('Start a new case'))];
+      return [h('article', { class: 'sheet' },
+        portrait(who),
+        h('div', { class: 'col' },
+          h('p', { class: 'kicker' }, d.caseTitle || 'The verdict'),
+          h('h1', {}, r.culprit ? r.culprit.name : 'The culprit'),
+          h('p', { class: 'field' }, r.explanation || (r.means ? `With ${r.means.name}.` : '')),
+          h('div', { class: 'actions' }, action('Continue on your Fire TV', () => callTool('send_to_tv', {}))),
+          h('p', { class: 'say', style: 'color:#5E4A3A' }, 'Try saying ', h('q', { style: 'color:#2B1D14' }, 'How are we doing?'))),
+        r.correct
+          ? h('div', { class: 'stamp proven', role: 'img', 'aria-label': 'Stamped: case closed, you solved it' }, h('span', {}, 'Case', h('br'), 'closed', h('small', {}, 'solved')))
+          : h('div', { class: 'stamp ruled', role: 'img', 'aria-label': 'Stamped: ruled out, wrong suspect' }, h('span', {}, 'Ruled out')))];
     },
+
+    record: (d) => {
+      const r = d.record || {};
+      const fav = r.favouriteSuspect;
+      const open = r.lastCase && !r.lastCase.finished;
+      return [h('div', { class: 'col' },
+        h('p', { class: 'kicker' }, 'Detective record'),
+        h('h1', { class: 'd5' }, r.casesStarted ? (r.streak > 1 ? `${r.streak} in a row. Nicely done.` : 'Your career so far') : 'A clean slate'),
+        h('div', { class: 'stats' },
+          h('div', { class: 'stat' }, h('b', {}, String(r.solved || 0)), h('span', {}, 'solved')),
+          h('div', { class: 'stat' }, h('b', {}, String(r.streak || 0)), h('span', {}, 'streak')),
+          h('div', { class: 'stat' }, h('b', {}, String(r.casesStarted || 0)), h('span', {}, 'cases opened'))),
+        fav ? h('p', { class: 'field' }, 'Favourite suspect to question: ', h('strong', {}, fav.name), '.') : null,
+        h('div', { class: 'actions' }, open
+          ? action(`Finish ${r.lastCase.title}`, () => callTool('resume_case', {}))
+          : action('Start a case', () => callTool('start_case', { tone: 'classic' }))),
+        say(open ? "Let's finish last night's case" : 'Start the case of the week'))];
+    },
+
+    handoff: (d) => [
+      d.qrUrl ? h('div', { class: 'qr' }, h('img', { src: d.qrUrl, alt: 'QR code to join on a phone' })) : h('div', { class: 'tvglyph', 'aria-hidden': 'true' }, 'TV'),
+      h('div', { class: 'col' },
+        h('p', { class: 'kicker' }, d.caseTitle || 'Your case'),
+        h('h1', {}, 'Continue on your Fire TV'),
+        h('p', { class: 'field' }, 'Open Accomplice on the TV and enter this code. Phones join with it too.'),
+        h('p', { class: 'code', 'aria-label': `Room code ${(d.roomCode || '').split('').join(' ')}` }, d.roomCode || '----'),
+        h('div', { class: 'actions' }, action('Back to the case', () => callTool('case_summary', {}))))],
 
     notice: (d) => [h('div', { class: 'col' },
       h('p', { class: 'kicker' }, 'Accomplice'),
@@ -327,7 +405,7 @@
   function paint(children) {
     stage.replaceChildren(
       h('div', { class: 'brandbar' }, h('i', { 'aria-hidden': 'true' }), 'ACCOMPLICE'),
-      h('section', { class: 'card enter' }, children));
+      h('section', { class: (children[0] && /folder|sheet/.test(children[0].className || '')) ? 'card bare enter' : 'card enter' }, children));
     notify('ui/notifications/size-changed', { width: root.scrollWidth, height: root.scrollHeight });
   }
   function render(data) {
@@ -339,7 +417,7 @@
   render({ view: 'empty' });
   if (host) {
     request('ui/initialize', {
-      appInfo: { name: 'accomplice-board', version: '0.2.0' },
+      appInfo: { name: 'accomplice-board', version: '0.3.0' },
       appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
       protocolVersion: PROTOCOL,
     }).then((res) => {

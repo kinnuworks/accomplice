@@ -11,6 +11,13 @@ export const DEMO_CASE: TvCase = {
   dateLine: 'A stormy Saturday in October, 1928',
   intro:
     'The rain had not stopped for three days, and neither had the arguments. Sir Bartholomew Crane invited five guests to Ashby Hall to announce a new will. At nine o\'clock he went to the study for his nightly game of chess. He never made his last move. Somebody in this house knows why, and they are hoping you are not paying attention.',
+  briefing: [
+    'Ashby Hall. Three days of rain, and three days of arguments.',
+    'Sir Bartholomew Crane went to the study at nine for his nightly game of chess. He never made his last move.',
+    'Here is the house. Every door, every corridor, every place to hide.',
+    'Five guests, five motives, and only one of them is lying about the thing that matters.',
+    'Ask them anything. Watch what they avoid.',
+  ],
   victim: { name: 'Sir Bartholomew Crane', description: 'Collector of clocks, grudges and other people\'s secrets.' },
   crime: { room: 'study', slot: 2, what: 'was found slumped over the chessboard' },
   rooms: [
@@ -25,11 +32,11 @@ export const DEMO_CASE: TvCase = {
     { id: 0, label: '8:00 pm' }, { id: 1, label: '8:30 pm' }, { id: 2, label: '9:00 pm' }, { id: 3, label: '9:30 pm' }, { id: 4, label: '10:00 pm' },
   ],
   suspects: [
-    { id: 'colonel', name: 'Colonel Rupert Ashby', role: 'the colonel', traits: ['booming', 'gruff'], voiceId: 'Brian', portrait: 'portraits/colonel.webp', motive: 'Lost the family silver to the victim at cards. Twice.', claimedAlibi: { 0: 'ballroom', 1: 'conservatory', 2: 'conservatory', 3: 'kitchen', 4: 'hall' } },
-    { id: 'heiress', name: 'Lady Clementine Vane', role: 'the heiress', traits: ['airy', 'amused'], voiceId: 'Amy', portrait: 'portraits/heiress.webp', motive: 'Engaged to the victim. Briefly, and with regret.', claimedAlibi: { 0: 'hall', 1: 'ballroom', 2: 'ballroom', 3: 'ballroom', 4: 'library' } },
-    { id: 'doctor', name: 'Dr Felix Amari', role: 'the doctor', traits: ['precise', 'dry'], voiceId: 'Arthur', portrait: 'portraits/doctor.webp', motive: 'Knew the will was changing on Monday.', claimedAlibi: { 0: 'library', 1: 'library', 2: 'library', 3: 'hall', 4: 'hall' } },
-    { id: 'cook', name: 'Mrs Odile Pemberton', role: 'the cook', traits: ['brisk', 'warm'], voiceId: 'Emma', portrait: 'portraits/cook.webp', motive: 'Thirty years of souffles and not one thank you.', claimedAlibi: { 0: 'kitchen', 1: 'kitchen', 2: 'kitchen', 3: 'kitchen', 4: 'ballroom' } },
-    { id: 'nephew', name: 'Toby Ashby', role: 'the nephew', traits: ['nervous', 'chatty'], voiceId: 'Joey', portrait: 'portraits/nephew.webp', motive: 'Inherits the hall, the debts and the draughts.', claimedAlibi: { 0: 'ballroom', 1: 'hall', 2: 'hall', 3: 'library', 4: 'library' } },
+    { id: 'colonel', shortName: 'Colonel Ashby', name: 'Colonel Rupert Ashby', role: 'the colonel', traits: ['booming', 'gruff'], voiceId: 'Brian', portrait: 'portraits/colonel.webp', motive: 'Lost the family silver to the victim at cards. Twice.', claimedAlibi: { 0: 'ballroom', 1: 'conservatory', 2: 'conservatory', 3: 'kitchen', 4: 'hall' } },
+    { id: 'heiress', shortName: 'Lady Vane', name: 'Lady Clementine Vane', role: 'the heiress', traits: ['airy', 'amused'], voiceId: 'Amy', portrait: 'portraits/heiress.webp', motive: 'Engaged to the victim. Briefly, and with regret.', claimedAlibi: { 0: 'hall', 1: 'ballroom', 2: 'ballroom', 3: 'ballroom', 4: 'library' } },
+    { id: 'doctor', shortName: 'Dr Amari', name: 'Dr Felix Amari', role: 'the doctor', traits: ['precise', 'dry'], voiceId: 'Arthur', portrait: 'portraits/doctor.webp', motive: 'Knew the will was changing on Monday.', claimedAlibi: { 0: 'library', 1: 'library', 2: 'library', 3: 'hall', 4: 'hall' } },
+    { id: 'cook', shortName: 'Mrs Pemberton', name: 'Mrs Odile Pemberton', role: 'the cook', traits: ['brisk', 'warm'], voiceId: 'Emma', portrait: 'portraits/cook.webp', motive: 'Thirty years of souffles and not one thank you.', claimedAlibi: { 0: 'kitchen', 1: 'kitchen', 2: 'kitchen', 3: 'kitchen', 4: 'ballroom' } },
+    { id: 'nephew', shortName: 'Toby', name: 'Toby Ashby', role: 'the nephew', traits: ['nervous', 'chatty'], voiceId: 'Joey', portrait: 'portraits/nephew.webp', motive: 'Inherits the hall, the debts and the draughts.', claimedAlibi: { 0: 'ballroom', 1: 'hall', 2: 'hall', 3: 'library', 4: 'library' } },
   ] as TvCase['suspects'],
   items: [
     { id: 'draught', name: 'the sleeping draught', homeRoom: 'library' },
@@ -37,12 +44,12 @@ export const DEMO_CASE: TvCase = {
     { id: 'opener', name: 'the letter opener', homeRoom: 'study' },
   ],
   clues: [
-    { id: 'c1', kind: 'physical', round: 1, title: 'Muddy boot prints', text: 'Size eleven, fresh from the rain, crossing from the conservatory to the kitchen door around nine.' },
-    { id: 'c2', kind: 'document', round: 1, title: 'A dance card', text: 'Lady Clementine danced every waltz from half past eight to half past nine. Her partners will not stop mentioning it.' },
-    { id: 'c3', kind: 'testimony', round: 2, title: 'The scullery maid', text: 'Swears Mrs Pemberton never left the kitchen while the pudding set. Not even to gossip.' },
-    { id: 'c4', kind: 'physical', round: 2, title: 'An empty vial', text: 'Found under the chess table. The label says one drop only, in a doctor\'s tidy hand.', key: true },
-    { id: 'c5', kind: 'document', round: 3, title: 'The hall clock log', text: 'Toby wound the great clock at nine sharp, as he does every night, and grumbled about it, as he does every night.' },
-    { id: 'c6', kind: 'physical', round: 3, title: 'A library chair', text: 'Still warm at ten, though nobody admits to sitting in it after half past eight.' },
+    { id: 'c1', short: 'Fresh muddy boots, conservatory to kitchen, around nine.', kind: 'physical', round: 1, title: 'Muddy boot prints', text: 'Size eleven, fresh from the rain, crossing from the conservatory to the kitchen door around nine.' },
+    { id: 'c2', short: 'Lady Vane danced every waltz, 8:30 to 9:30.', kind: 'document', round: 1, title: 'A dance card', text: 'Lady Clementine danced every waltz from half past eight to half past nine. Her partners will not stop mentioning it.' },
+    { id: 'c3', short: 'The cook never left the kitchen.', kind: 'testimony', round: 2, title: 'The scullery maid', text: 'Swears Mrs Pemberton never left the kitchen while the pudding set. Not even to gossip.' },
+    { id: 'c4', short: 'Empty vial under the chess table. A doctor\'s label.', kind: 'physical', round: 2, title: 'An empty vial', text: 'Found under the chess table. The label says one drop only, in a doctor\'s tidy hand.', key: true },
+    { id: 'c5', short: 'Toby wound the hall clock at nine sharp.', kind: 'document', round: 3, title: 'The hall clock log', text: 'Toby wound the great clock at nine sharp, as he does every night, and grumbled about it, as he does every night.' },
+    { id: 'c6', short: 'The library chair was warm at ten.', kind: 'physical', round: 3, title: 'A library chair', text: 'Still warm at ten, though nobody admits to sitting in it after half past eight.' },
   ],
 };
 
@@ -73,6 +80,8 @@ export const DEMO_LINES: { round: 1 | 2 | 3; asker: string; suspect: string; q: 
   { round: 3, asker: 'p5', suspect: 'nephew', q: 'Did you like your uncle?', a: 'Like is a strong word. I liked his clock. I wound it at nine, like always, and he shouted at me, like always.' },
   { round: 3, asker: 'p1', suspect: 'doctor', q: 'Who saw you in the library?', a: 'The books, mostly. They are excellent listeners and very poor witnesses.' },
 ];
+
+export const DEMO_ACCOMPLICE_LINE = 'I was only trying to help. I said the colonel looked shifty, and honestly, he does.';
 
 export const DEMO_BRIEFING_LINES = [
   'The rain had not stopped for three days, and neither had the arguments.',

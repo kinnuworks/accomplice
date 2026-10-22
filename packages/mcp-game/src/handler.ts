@@ -16,6 +16,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { buildServer } from './server.ts';
 import type { GameApiSource } from './types.ts';
 import { fromRoomApi, isRoomGameApi, type RoomGameApi } from './room-adapter.ts';
+import { recordStoreFromEnv, recordUpdater, type RecordStore } from './records.ts';
 
 export interface McpHandlerOptions {
   /** Household used when the request names none. Default "living-room". */
@@ -28,6 +29,10 @@ export interface McpHandlerOptions {
   sessionIdleMs?: number;
   /** Add permissive CORS headers so browser based MCP clients can connect. Default true. */
   cors?: boolean;
+  /** Where detective records live. Default: from the environment (DynamoDB, else a JSON file). */
+  records?: RecordStore;
+  /** Narrator voice for spoken lines, used when the game itself has no narrate(). */
+  narrate?: (text: string) => Promise<{ audioUrl?: string }> | { audioUrl?: string };
 }
 
 export type McpHttpHandler = ((req: IncomingMessage, res: ServerResponse, parsedBody?: unknown) => Promise<void>) & {
@@ -35,6 +40,8 @@ export type McpHttpHandler = ((req: IncomingMessage, res: ServerResponse, parsed
   close(): Promise<void>;
   /** Number of live sessions, handy for health checks. */
   readonly sessionCount: number;
+  /** Where detective records are kept: "dynamodb", "file" or "memory". */
+  readonly recordStore: string;
 };
 
 interface Session { transport: StreamableHTTPServerTransport; server: McpServer; lastSeen: number }
@@ -83,6 +90,8 @@ export function createMcpHandler(game: GameApiSource | RoomGameApi, options: Mcp
   const gameApi: GameApiSource = isRoomGameApi(game) ? fromRoomApi(game) : game;
   const sessions = new Map<string, Session>();
   const taskStore = new InMemoryTaskStore();
+  const records = options.records ?? recordStoreFromEnv();
+  const updateRecord = recordUpdater(records);
   const idleMs = options.sessionIdleMs ?? 30 * 60_000;
   const cors = options.cors ?? true;
 
@@ -135,7 +144,7 @@ export function createMcpHandler(game: GameApiSource | RoomGameApi, options: Mcp
       const publicBaseUrl = baseUrlOf(req);
 
       if (req.method === 'POST' && isInitializeRequest(body)) {
-        const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl });
+        const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl, records, updateRecord, narrate: options.narrate });
         const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: (id) => { sessions.set(id, { transport, server, lastSeen: Date.now() }); },
@@ -153,7 +162,7 @@ export function createMcpHandler(game: GameApiSource | RoomGameApi, options: Mcp
       }
 
       // Stateless: one server for this one request.
-      const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl });
+      const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl, records, updateRecord, narrate: options.narrate });
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       res.on('close', () => { void transport.close().catch(() => {}); void server.close().catch(() => {}); });
       await server.connect(transport);
@@ -172,5 +181,6 @@ export function createMcpHandler(game: GameApiSource | RoomGameApi, options: Mcp
     taskStore.cleanup();
   };
   Object.defineProperty(handler, 'sessionCount', { get: () => sessions.size });
+  Object.defineProperty(handler, 'recordStore', { get: () => records.kind });
   return handler;
 }

@@ -2,7 +2,7 @@
 // Each household gets its own room. If a household has none yet, it joins the room already running on the TV,
 // so a voice assistant in the living room plays the same game as everyone else.
 
-import type { CaseSummary, ClueCard, GameApi, Hint, NamedRef, StartOptions, SuspectCard, Tone } from './types.ts';
+import type { CaseRef, CaseSummary, ClueCard, GameApi, Handoff, Hint, NamedRef, StartOptions, SuspectCard, Tone } from './types.ts';
 
 // The parts of the server's API we rely on, kept structural so this package does not import the server.
 interface RoomPublicCase {
@@ -26,6 +26,10 @@ export interface RoomGameApi {
   next?(code: string): Promise<unknown>;
   accuse(code: string, theory: { culprit: string; item?: string }): Promise<{ correct: boolean; culprit: { id: string; name: string }; item: string; steps: { says: string; therefore: string }[] }>;
   state(code: string): { phase: string; round: number; case: RoomPublicCase | null };
+  /** Optional: the TV narrator's voice for a line. */
+  narrate?(text: string): Promise<{ audioUrl?: string; captionChunks?: unknown }> | { audioUrl?: string; captionChunks?: unknown };
+  /** Optional: one deduction step from the engine, never pointing at the culprit. */
+  hint?(code: string): Promise<{ text: string; clueId?: string; hintsLeft?: number }> | { text: string; clueId?: string; hintsLeft?: number };
 }
 
 export function isRoomGameApi(x: unknown): x is RoomGameApi {
@@ -47,6 +51,8 @@ export function fromRoomApi(api: RoomGameApi, opts: RoomAdapterOptions = {}): (h
   const roomOf = new Map<string, string>();
   const solved = new Set<string>();
   const hintIndex = new Map<string, number>();
+  const seeds = new Map<string, number>();
+  const joinUrls = new Map<string, string>();
   const games = new Map<string, GameApi>();
 
   const findRoom = (household: string): string | null => {
@@ -80,6 +86,8 @@ export function fromRoomApi(api: RoomGameApi, opts: RoomAdapterOptions = {}): (h
       boardClueCount,
       phase: st.phase,
       round: st.round,
+      roomCode: code,
+      seed: seeds.get(code),
       solved: solved.has(code) || st.phase === 'reveal' || st.phase === 'results',
     };
   };
@@ -94,8 +102,10 @@ export function fromRoomApi(api: RoomGameApi, opts: RoomAdapterOptions = {}): (h
     };
     return {
       async startCase(tone: Tone, o?: StartOptions) {
-        const { code } = api.createRoom({ tone });
+        const { code, joinUrl } = api.createRoom({ tone, seed: o?.seed });
         roomOf.set(household, code);
+        if (joinUrl) joinUrls.set(code, joinUrl);
+        if (o?.seed !== undefined) seeds.set(code, o.seed);
         solved.delete(code);
         hintIndex.delete(code);
         let i = 0;
@@ -105,7 +115,7 @@ export function fromRoomApi(api: RoomGameApi, opts: RoomAdapterOptions = {}): (h
           o?.onProgress?.({ progress: i, total: START_STEPS.length, message: START_STEPS[i]! });
         }, 1200);
         try {
-          await api.startCase(code, { tone });
+          await api.startCase(code, { tone, seed: o?.seed });
         } finally {
           clearInterval(tick);
         }
@@ -176,9 +186,34 @@ export function fromRoomApi(api: RoomGameApi, opts: RoomAdapterOptions = {}): (h
           steps: r.steps,
         };
       },
-      hint(): Hint {
-        // One step at a time: point at a single clue on the board and ask the question it answers.
+      async resumeCase(ref: CaseRef) {
+        const rooms = api.listRooms();
+        const code = ref.roomCode?.toUpperCase();
+        if (code && rooms.some((r) => r.code === code) && api.state(code).case) {
+          roomOf.set(household, code);
+          return summary(code);
+        }
+        // the room is gone (the server restarted): rebuild the same case from its seed
+        if (ref.seed !== undefined) {
+          const g = make(household);
+          return g.startCase(ref.tone ?? 'classic', { seed: ref.seed });
+        }
+        return null;
+      },
+      handoff(): Handoff {
         const code = need();
+        const joinPath = joinUrls.get(code) ?? `/p?room=${code}`;
+        return { roomCode: code, tvPath: `/tv/?room=${code}`, joinPath, qrService: '/api/qr' };
+      },
+      narrate: api.narrate ? async (text: string) => { const n = await api.narrate!(text); return { audioUrl: n?.audioUrl }; } : undefined,
+      async hint(): Promise<Hint> {
+        const code = need();
+        // The engine knows the deduction chain: use its hint when the server provides one.
+        if (api.hint) {
+          const h = await api.hint(code);
+          return { text: h.text, clueId: h.clueId, hintsLeft: h.hintsLeft };
+        }
+        // Fallback: point at a single clue on the board and ask the question it answers.
         const s = summary(code);
         const clues = api.board(code).clues;
         if (!clues.length) return { text: 'Start by asking each suspect where they were at the time of the crime.' };

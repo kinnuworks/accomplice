@@ -1,6 +1,6 @@
 // Procedural case generator. Deterministic from (seed, tone, difficulty, suspectCount).
 import type { Case, Clue, Fact, Item, Lie, Room, Slot, Suspect, Tone } from '@accomplice/protocol';
-import { ARCHETYPES, SETTINGS, type SettingDef } from './content.js';
+import { ARCHETYPES, CONFESSION_CLOSER, CONFESSION_METHOD, HEADLINES, HEADLINE_SUBS, SETTINGS, type SettingDef } from './content.js';
 import { alternative, analyse, dist, factKey, isUnique, makeWorld, type IFact, type World } from './logic.js';
 import { hashString, int, makeRng, pick, shuffle, weighted, type Rng } from './rng.js';
 import { alibiBreakerClue, embarrassmentClue, phraseClue, type Truthy } from './text.js';
@@ -305,6 +305,26 @@ export function generateCase(opts: GenerateOptions): Case {
   const quips = suspects.map((s, i) => `${s.shortName}: ${pick(r, arch[i].quip[tone])}.`);
   for (let i = 0; i < quips.length; i += 2) briefing.push(quips.slice(i, i + 2).join(' '));
 
+  // ----- Reveal extras: confession, front page, clock -----
+  const cArch = arch[culprit];
+  const fillIn = (tpl: string, v: Record<string, string>) => tpl.replace(/\{(\w+)\}/g, (m, k) => v[k] ?? m);
+  const vars = {
+    V: crime.short, T: slots[crimeSlot].label, C: rooms[crimeRoom].name, I: itemList[means].name,
+    H: rooms[meansDef.h].name, N: setting.headlineName, X: crime.short.replace(/^the /, '').toUpperCase(),
+    R: cap(cArch.role.replace(/^the /, '')), RL: cArch.role, S: suspects[culprit].shortName ?? suspects[culprit].name,
+  };
+  const confession = [
+    cap(fillIn(cArch.confess[tone], vars)),
+    ((tpl) => {
+      const full = fillIn(tpl, { ...vars, V: cap(crime.short) });
+      return full.split(/\s+/).length <= 25 ? full : fillIn(tpl.replace(' from the {H}', ''), { ...vars, V: cap(crime.short) });
+    })(pick(r, CONFESSION_METHOD[tone])),
+    pick(r, CONFESSION_CLOSER[tone]),
+  ];
+  const headline = { title: fillIn(pick(r, HEADLINES[tone]), vars), sub: fillIn(pick(r, HEADLINE_SUBS), { ...vars, DETECTIVE: '{DETECTIVE}' }) };
+  const firstHour = parseInt(td.slots[0], 10);
+  const clockChimes = [1, 2, 3].map((k) => ((firstHour + k - 1) % 12) + 1);
+
   const c: Case = {
     id: `${setting.id}-${tone}-${seed}`,
     seed, tone, difficulty,
@@ -314,6 +334,10 @@ export function generateCase(opts: GenerateOptions): Case {
     intro: `${td.opening} ${crimeLine} ${tail}`,
     scene: setting.scene,
     briefing,
+    confession,
+    headline,
+    paperName: setting.paperName,
+    clockChimes,
     victim: { name: victimName, description: crime.description },
     crime: { room: rid(crimeRoom), slot: crimeSlot, item: itemList[means].id, what: crime.what },
     rooms, slots, suspects, items,

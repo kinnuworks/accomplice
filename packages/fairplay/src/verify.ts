@@ -5,7 +5,7 @@ import type { Case, Clue, Fact, VerifyReport } from '@accomplice/protocol';
 import { init, killThreads } from 'z3-solver';
 import { analyse, toIFact, worldOf } from './logic.js';
 import { MIN_SEATS } from './generate.js';
-import { safeLiesForAccomplice } from './proof.js';
+import { safeLiesForAccomplice, slipFact } from './proof.js';
 
 type Api = Awaited<ReturnType<typeof init>>;
 let apiP: Promise<{ api: Api; ctx: any }> | null = null;
@@ -198,8 +198,17 @@ export async function verifyCase(c: Case): Promise<VerifyReport> {
       else notes.push(`Accomplice lie is not safe: ${lie.text}`);
     }
 
+    // (5) Objection slips: revealing any one of them in round 1 must not crack the case early.
+    let slipsOk = true;
+    for (const s of c.suspects) {
+      const sf = slipFact(c, s.id);
+      if (!sf) continue;
+      const a = await solveUnique(e, [...L(c.clues.filter((cl) => cl.round === 1)), e.lit('slip', sf.fact)]);
+      if (a.unique) { slipsOk = false; notes.push(`Objection slip for ${s.id} would solve the case in round 1.`); }
+    }
+
     const ok = truthOk && uniqueCulprit && main.unique && full.unique && keyAgree && keyClues.length > 0
-      && (solvableByRound === 2 || solvableByRound === 3) && !fullR1.unique && safe === lies.length && lies.length > 0;
+      && (solvableByRound === 2 || solvableByRound === 3) && !fullR1.unique && slipsOk && safe === lies.length && lies.length > 0;
     return {
       ok,
       uniqueCulprit,

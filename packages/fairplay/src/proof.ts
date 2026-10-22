@@ -1,5 +1,6 @@
 // Reasoning helpers built on the plain reasoner: theories, the reveal's proof chain, accomplice lies.
-import type { AccompliceLie, Case, Clue, Fact, ProofStep, Theory, TheoryVerdict } from '@accomplice/protocol';
+import type { AccompliceLie, Case, Claim, Clue, Fact, ObjectionResult, ProofStep, Theory, TheoryVerdict } from '@accomplice/protocol';
+import { RETORTS } from './content.js';
 import { analyse, dist, isUnique, toIFact, worldOf } from './logic.js';
 import { MIN_SEATS } from './generate.js';
 import { hashString, makeRng, shuffle } from './rng.js';
@@ -146,4 +147,73 @@ export function safeLiesForAccomplice(c: Case): AccompliceLie[] {
     out.push({ text: `I'm almost certain I saw ${N.suspect(f.s)} in the ${N.room(f.room)} at ${N.slot(f.slot)}.`, fact: f });
   }
   return out;
+}
+
+/** Objection result: the protocol shape plus the coordinator's slip/retort names. */
+export type Objection = ObjectionResult & ({ wasLying: true; slip: string; fact: Fact } | { wasLying: false; retort: string });
+
+/** Would revealing this fact (on top of all round 1 clues) let a table solve the case in round 1? */
+export function tooRevealing(c: Case, f: Fact): boolean {
+  const m = worldOf(c);
+  const r1 = c.clues.filter((cl) => cl.round === 1).map((cl) => toIFact(cl.fact, m));
+  const a = analyse(m.w, [...r1, toIFact(f, m)]);
+  return a.pairs.length <= 1;
+}
+
+/**
+ * The true fact a suspect lets slip when a player objects, or null if they were not lying.
+ * `said` is the claims extracted from their last answer (or the raw text). Without it, any lie
+ * the suspect is keeping up counts.
+ */
+export function slipFact(c: Case, suspectId: string, said?: Claim[] | string): { fact: Fact; lieSlot: number; weak: boolean } | null {
+  let lies = c.lies.filter((l) => l.s === suspectId);
+  if (Array.isArray(said)) {
+    // Only lies actually told in that answer.
+    lies = lies.filter((l) => said.some((cl) => cl.kind === 'location' && cl.s === suspectId && cl.slot === l.slot && cl.room !== l.trueRoom));
+  } else if (typeof said === 'string' && said.trim()) {
+    const N = namesOf(c);
+    const text = said.toLowerCase();
+    const hit = lies.filter((l) => text.includes(N.room(l.claimedRoom).toLowerCase()) || text.includes(N.slot(l.slot).toLowerCase().replace(' pm', '')));
+    if (hit.length) lies = hit;
+  }
+  if (!lies.length) return null;
+  const lie = lies.find((l) => l.reason === 'embarrassment');
+  if (lie) {
+    const strong: Fact = { k: 'at', s: suspectId, room: lie.trueRoom, slot: lie.slot };
+    if (!tooRevealing(c, strong)) return { fact: strong, lieSlot: lie.slot, weak: false };
+    return { fact: { k: 'notAt', s: suspectId, room: lie.claimedRoom, slot: lie.slot }, lieSlot: lie.slot, weak: true };
+  }
+  // Only the crime alibi is in play. Never confess: admit a nearby true whereabouts instead.
+  const cs = c.crime.slot;
+  const slots = c.slots.map((s) => s.id).filter((t) => t !== cs).sort((a, b) => Math.abs(a - cs) - Math.abs(b - cs) || a - b);
+  const cands = slots.map((t) => ({ k: 'at', s: suspectId, room: c.truth.position[suspectId][t], slot: t }) as Fact);
+  const fact = cands.find((f) => !tooRevealing(c, f)) ?? cands[cands.length - 1];
+  return { fact, lieSlot: cs, weak: true };
+}
+
+/** A player shouts "Objection!" at a suspect. Returns a flustered true admission, or an indignant retort. */
+export function objectionSlip(c: Case, suspectId: string, said?: Claim[] | string): Objection {
+  const N = namesOf(c);
+  const r = makeRng(hashString(`objection|${c.id}|${suspectId}|${JSON.stringify(said ?? '')}`));
+  const sf = slipFact(c, suspectId, said);
+  if (!sf) {
+    const retort = RETORTS[c.tone][Math.floor(r() * RETORTS[c.tone].length)];
+    return { wasLying: false, line: retort, retort };
+  }
+  const f = sf.fact;
+  let slip: string;
+  if (f.k === 'at' && !sf.weak) {
+    const lie = c.lies.find((l) => l.s === suspectId && l.slot === f.slot)!;
+    const doing = lie.detail ? ` I was ${lie.detail}.` : '';
+    slip = `Oh, very well. At ${N.slot(f.slot)} I was in the ${N.room(f.room)}, not the ${N.room(lie.claimedRoom)}.${doing} Happy now?`;
+  } else if (f.k === 'notAt') {
+    slip = `Fine! At ${N.slot(f.slot)} I was not exactly in the ${N.room(f.room)}. Can we leave it there?`;
+  } else if (f.k === 'at') {
+    slip = c.tone === 'classic'
+      ? `All right, all right. I may have passed through the ${N.room(f.room)} at ${N.slot(f.slot)}. Passing through is not a crime.`
+      : `Okay, okay! Maybe I was in the ${N.room(f.room)} at ${N.slot(f.slot)}. Just for a minute. That proves nothing!`;
+  } else {
+    slip = 'Oh, very well. I may have bent the truth a little.';
+  }
+  return { wasLying: true, line: slip, slip, fact: f, factText: describeFact(c, f) };
 }

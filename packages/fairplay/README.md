@@ -1,120 +1,184 @@
 # fairplay
 
-Murder mysteries that play fair, checked by a logic solver.
+**Murder mysteries that a logic solver proves fair before anyone plays them.**
 
-fairplay builds a fresh whodunit from a number (a seed). You get a setting with a floor plan, a handful of suspects with motives and voices, a crime, a timeline of where everyone really was, the lies some of them will tell, and a deck of clues dealt out over three rounds. Then a second, independent solver (Z3) checks the case before anyone plays it:
+![generate, verify with Z3, play](docs/how-it-works.svg)
 
-- **Exactly one answer.** Using only the clues, there is one culprit and one means that fit, and they are the right ones.
-- **Every key clue matters.** Remove a key clue and the answer stops being unique.
-- **It takes the whole game.** The case cannot be solved after round 1, and can be solved by round 3.
-- **The accomplice cannot break it.** Any lie the engine hands to a secret accomplice keeps the answer unique.
+fairplay writes a fresh whodunit from a number: a house with a floor plan, a cast of suspects with motives and voices, a crime, where everyone really was all evening, who lies and why, and a deck of clues dealt over three rounds. Then Z3, an industrial strength SMT solver, checks the case from scratch:
 
-Every clue card has a full `text` and a `short` face line of 12 words or fewer, every suspect has a `shortName`, and each case carries a `briefing` of four to six short narrator lines for the opening slides.
+- **Exactly one answer.** Only one culprit and one means fit the clues, and they are the right ones.
+- **Every key clue matters.** Take away a key clue and the answer stops being unique.
+- **It lasts the whole game.** It cannot be solved after round 1. It can be solved by round 3.
+- **Nobody can break it.** Lies a secret accomplice may tell, and slips a suspect makes when you shout "Objection!", never wreck the puzzle.
 
-If a case fails any check, it is thrown away and the next seed is tried.
+A case that fails any check is thrown away and the next seed is tried. In practice, almost none fail.
 
-It was written for *Accomplice*, a living room party game where AI suspects answer questions out loud, so it also tells each suspect exactly what they know (and must lie about) and checks what they said afterwards. You can use it for anything that needs a fair mystery: a party game, a puzzle generator, a test bed for reasoning agents.
+fairplay powers *Accomplice*, a living room party game where AI suspects answer questions out loud. It is just as happy driving a puzzle site, a tabletop prop generator, a classroom logic exercise, or a benchmark for reasoning agents.
 
-## Two tones
-
-- **classic**: a bloodless country house style whodunit. Somebody is found very dead and very politely so. Witty, no gore.
-- **cozy**: kid safe. The birthday cake vanished. The prize marrow was swapped for a supermarket courgette. Nobody dies.
-
-Settings include Ashby Hall (a Cotswolds country house), The Sapphire Express (a snowbound night train) and Marigold Manor (a hill station villa in the monsoon). Ten suspect archetypes (the cook, the gardener, the butler, the heiress, the family doctor, the retired colonel, the painter, the society columnist, the stage magician, the hard-up nephew) work in both tones, each with a distinct Amazon Polly voice.
-
-## Install
+## Quick start (30 seconds)
 
 ```sh
 npm install fairplay z3-solver
 ```
 
-Node 22 or newer. Z3 runs as WebAssembly, so there is nothing native to build.
-
-## Example
-
 ```ts
-import { generateVerifiedCase, proofChain, evaluateTheory, shutdownSolver } from 'fairplay';
+import { generateVerifiedCase, evaluateTheory, proofChain, shutdownSolver } from 'fairplay';
 
-const { c, report, tries } = await generateVerifiedCase({ seed: 2026, tone: 'classic', difficulty: 2 });
+const { c, report } = await generateVerifiedCase({ seed: 7, tone: 'cozy', difficulty: 2 });
 
-console.log(c.title);              // "Murder at Ashby Hall"
-console.log(c.intro);              // narrator paragraph
-console.log(report);               // { ok: true, uniqueCulprit: true, keyClues: [...], solvableByRound: 3, ms: 240, ... }
+console.log(c.title, '\n', c.intro);
+for (const clue of c.clues.filter((x) => x.round === 1)) console.log('-', clue.text);
 
-for (const clue of c.clues.filter((x) => x.round === 1 && x.visibility === 'board')) console.log(clue.text);
-
-const pinned = c.clues.filter((x) => x.visibility === 'board').map((x) => x.id);
-console.log(await evaluateTheory(c, pinned, { culprit: 'butler' })); // 'follows' | 'possible' | 'contradicted'
-
-for (const step of proofChain(c)) console.log(step.says, '->', step.therefore);
+const everyClue = c.clues.map((x) => x.id);
+console.log(await evaluateTheory(c, everyClue, { culprit: c.suspects[0].id })); // 'follows' | 'possible' | 'contradicted'
+console.log(proofChain(c).map((s) => `${s.says} ${s.therefore}`).join('\n'));
 
 await shutdownSolver(); // lets Node exit
 ```
 
-## API
-
-| Function | What it does |
-| --- | --- |
-| `generateCase({ seed, tone, difficulty, suspectCount? })` | Builds a case. Same input, same case, every time. Synchronous. |
-| `verifyCase(case)` | Checks the case with Z3 and returns a `VerifyReport`: `ok`, `uniqueCulprit`, `culprit`, `keyClues`, `solvableByRound`, `safeAccompliceLies`, `ms`, `notes`. |
-| `generateVerifiedCase(opts, maxTries = 25)` | Tries consecutive seeds until one verifies. Returns `{ c, report, tries }`. |
-| `sliceFor(case, suspectId)` | What one suspect knows, in plain sentences ("At 9:00 pm you were in the Library."), the lies they must keep up, and what they must never reveal. Feed this, and only this, to whatever plays the suspect. |
-| `checkReply(case, suspectId, claims)` | Checks location claims pulled from a suspect's reply. Flags falsehoods that are not that suspect's own permitted lie, anything that gives away the culprit, and claims about people the speaker never saw. |
-| `evaluateTheory(case, pinnedClueIds, { culprit, item? })` | Using only the pinned clues: does the theory follow, is it merely possible, or is it contradicted? |
-| `proofChain(case)` | Ordered steps from clues to the answer, each naming who it rules out. Made for a dramatic reveal. |
-| `safeLiesForAccomplice(case)` | One to three false statements an accomplice may say aloud without making the case unfair. |
-| `publicView(case)` | The case with the solution, lies, alibis and clues removed. Safe to send to every screen. |
-| `describeFact(case, fact)` | One plain sentence for a clue's underlying fact, for captions and screen readers. |
-| `shutdownSolver()` | Stops Z3's worker threads so a script can exit. |
-
-Types (`Case`, `Clue`, `Fact`, `VerifyReport` and friends) live in `@accomplice/protocol` in the Accomplice repo; in the standalone package they ship alongside the code.
-
-## How a case is built
-
-1. **Pick a setting and cast.** A floor plan of 5 to 7 rooms with doors, five time slots, four or five suspects, a means (the candlestick, or the tea trolley someone used to wheel away the cake) and a few decoy items.
-2. **Write the truth.** Every suspect takes a walk through the house, one room per slot, only through doors. The culprit's walk passes the means where it is kept, picks it up, and reaches the crime room at the crime slot. Nobody else is in that room then.
-3. **Decide who lies.** The culprit lies about where they were at the crime slot. One or two innocents lie about something embarrassing at another time (eating trifle straight from the bowl). Those red herrings always have a clue that exposes them.
-4. **Choose clues by argument.** The generator asks a small built-in reasoner for any *other* explanation that still fits the clues so far: a different culprit, or a different means. It then picks a true fact that this explanation gets wrong and adds it as a clue. It repeats until no other explanation survives, then drops any clue the others already imply. This is counterexample guided selection, and it means every chosen clue earns its place.
-5. **Deal the clues.** Key clues are spread across the three rounds, on the shared board or with the first three seats (a game always has at least three players), with at least one in the last round. Extra seats get true flavour clues. A filler clue is only accepted if the case is still unsolvable before round 3.
-
-## How verification works
-
-`verifyCase` encodes the case for Z3 from scratch, without trusting the generator:
-
-- `pos[s][t]`, the room of suspect *s* at slot *t*, as a small bit vector; moves only along doors.
-- `culprit` and `means` as unknowns. The culprit is in the crime room at the crime slot, holding the means.
-- Each item starts the evening at home. Only the means can move, only while the culprit holds it; it is picked up where it lies and stays where it was put down.
-- Each clue is a typed fact (`at`, `notAt`, `saw`, `had`, `itemIn`) switched on by its own assumption literal, so the same solver answers every question below.
-
-Then it checks:
-
-1. The true story satisfies every rule and every clue.
-2. **Uniqueness:** find a model, block its (culprit, means), and confirm the solver now says *unsat*. Done for the clues every table sees, and for all clues.
-3. **Necessity:** for each clue, drop it and re-run the uniqueness check. The clues whose removal breaks uniqueness are the key clues, and they must match the generator's own flags.
-4. **Pacing:** the earliest round whose clues already give a unique answer. Round 1 is a failure.
-5. **Accomplice lies:** each one, added to all clues, must still leave exactly one answer.
-6. **Cross-check:** the built-in reasoner and Z3 must agree.
-
-## Numbers
-
-Measured with `pnpm stats` (seeds 1 to N, difficulty 2), on a busy laptop:
-
-| | classic | cozy |
-| --- | --- | --- |
-| Cases verified on the first seed | 200 / 200 (100%) | 200 / 200 (100%) |
-| Median time to generate | 13 ms | 24 ms |
-| Median time to verify with Z3 | 151 ms | 220 ms |
-| Earliest round solvable | round 3 in every case | round 3 in every case |
-| Median key clues per case | 4 | 4 |
-| `generateVerifiedCase` tries | median 1, max 1 (50 runs) | median 1, max 1 (50 runs) |
-
-The test suite (mixed difficulties 1 to 3) also verifies 200 seeds per tone, at a median of about 120 ms each. Timings include Z3 running in WebAssembly and vary with machine load.
-
-Run them yourself:
+Or try it without installing anything into a project:
 
 ```sh
-pnpm stats 200      # N seeds per tone, optional second argument is difficulty
+git clone https://github.com/dhirajkavuri/fairplay && cd fairplay && npm install
+npx tsx examples/cli.ts 42 classic --solve      # a full case in your terminal
+npm run build && npx serve .                    # then open /examples/playground/
 ```
+
+Node 22 or newer. Z3 ships as WebAssembly, so there is nothing native to compile. The browser entry, `fairplay/core`, has everything except the Z3 verifier and runs anywhere.
+
+## What you get in a case
+
+| Field | What it is |
+| --- | --- |
+| `title`, `place`, `dateLine`, `intro`, `briefing` | The story, plus four to six short narrator lines for opening slides |
+| `rooms` | Five to seven rooms with `x, y, w, h` on a 16 x 9 grid and the doors between them |
+| `slots` | Five times of the evening, for example 8:00 pm to 10:00 pm |
+| `suspects` | Name, `shortName`, role, speaking traits, motive, voice id, portrait key, and their claimed alibi |
+| `items` | The means and some decoys, each with the room it is kept in |
+| `crime` | Where and when it happened, what happened, and (secretly) the means |
+| `clues` | Title, full `text`, a `short` card face of 12 words or fewer, round, board or private seat, and the typed `fact` behind it |
+| `truth`, `lies` | The real timeline, the culprit, who held the means, and every lie with its reason |
+| `confession`, `headline`, `paperName`, `clockChimes` | Reveal extras: three lines in the culprit's voice, a newspaper front page, and chimes for each round |
+
+Two tones: **classic**, a bloodless country house whodunit (someone is found very dead and very politely so), and **cozy**, which is kid safe (the birthday cake vanished, the prize marrow was swapped for a supermarket courgette). Three settings: Ashby Hall, The Sapphire Express and Marigold Manor. Ten suspect archetypes, each with a distinct Amazon Polly voice.
+
+## API
+
+Everything is synchronous and deterministic except the functions that call Z3.
+
+### `generateCase(opts): Case`
+
+```ts
+const c = generateCase({ seed: 2026, tone: 'classic', difficulty: 3, suspectCount: 5 });
+```
+
+Same options, same case, every time. `difficulty` 1 uses four suspects and fewer decoys and allows more direct clues; 3 leans on clues you must chain together (where someone was half an hour before, where the means was last seen).
+
+### `verifyCase(c): Promise<VerifyReport>`
+
+```ts
+const report = await verifyCase(c);
+// { ok: true, uniqueCulprit: true, culprit: 'butler', keyClues: ['r1b2', 'r3s0'], solvableByRound: 3, safeAccompliceLies: 3, ms: 160, notes: [] }
+```
+
+`notes` explains any failure in plain words.
+
+### `generateVerifiedCase(opts, maxTries = 25)`
+
+Tries `seed`, `seed + 1`, and so on until a case verifies. Returns `{ c, report, tries }`.
+
+### `sliceFor(c, suspectId): SuspectSlice`
+
+What one suspect knows, in plain sentences, and nothing else. Give this, and only this, to whatever plays the suspect: a language model, an actor, a friend.
+
+```ts
+sliceFor(c, 'cook');
+// knows:        ['At 8:00 pm you were in the Kitchen.', 'At 8:00 pm you saw Ned in the Kitchen with you.', ...]
+// mustLie:      ['If anyone asks where you were at 9:30 pm, say you were in the Dining Room. ...']
+// mayNotReveal: ['Never confess. Never hint that you did it.', ...]
+```
+
+### `checkReply(c, suspectId, claims): ClaimCheck`
+
+Feed it the location claims pulled out of what a suspect said. It flags anything false that is not that suspect's own permitted lie, anything that gives away the culprit, and claims about people the speaker never saw.
+
+```ts
+checkReply(c, 'cook', [{ kind: 'location', s: 'cook', room: 'kitchen', slot: 3 }]);
+// { ok: false, violations: ['Gives away the culprit: places Mrs. Dolly Pargeter in the Kitchen at 9:30 pm.'] }
+```
+
+### `evaluateTheory(c, pinnedClueIds, theory): Promise<'follows' | 'possible' | 'contradicted'>`
+
+Using only the clues a player has pinned: is the theory proven, still possible, or ruled out?
+
+### `proofChain(c): ProofStep[]`
+
+Ordered steps from clues to the answer, each naming who it rules out. Built for a dramatic reveal.
+
+```ts
+// { clueId: 'r2s0', says: 'Pippa and Rohan were together in the Galley at 8:00 pm.', therefore: '... Rohan and Pippa are in the clear.', eliminates: ['nephew', 'artist'] }
+```
+
+### `objectionSlip(c, suspectId, claims?): ObjectionResult`
+
+A player cries "Objection!" after an answer. If that answer contained a lie, the suspect lets slip one true fact in a flustered line ("Oh, very well. At 8:30 pm I was in the Great Hall, not the Dining Room."). If not, you get an indignant retort. The culprit never confesses this way, and Z3 checks that no slip can crack the case in round 1.
+
+### `safeLiesForAccomplice(c): AccompliceLie[]`
+
+One to three false statements a secret accomplice may say aloud. Each is consistent with every clue, so it muddies the water without making the case unfair.
+
+### `publicView(c): PublicCase`
+
+The case with the solution, lies, alibis and clues removed. Safe to send to every screen.
+
+### `describeFact(c, fact): string`
+
+One plain sentence for a clue's underlying fact, for captions and screen readers.
+
+### `shutdownSolver(): Promise<void>`
+
+Stops Z3's worker threads so a script can exit.
+
+## How the fairness proof works
+
+Think of a case as a giant logic puzzle. The unknowns are: which room each suspect was in at each time, who did it, and with what. The rules are simple:
+
+1. People move only through doors, one room per half hour (or they stay put).
+2. The culprit was in the crime room at the crime time, holding the means.
+3. Every item starts the evening where it is kept. Only the means ever moves, and only while the culprit carries it.
+4. Every clue is true. A clue is a typed fact: someone *was* or *was not* somewhere, two people were *together*, an item was *in* a room, someone *had* an item.
+
+**Building it.** The generator writes a true story first, then picks clues by argument. It asks a small built-in reasoner, "Is there any other story that fits the clues so far, with a different culprit or means?" If there is, it picks a true fact that this other story gets wrong, and adds it as a clue. It keeps going until no other story survives, then removes any clue the rest already imply. That is called counterexample guided selection, and it is why every chosen clue earns its place.
+
+**Checking it.** `verifyCase` hands the same rules and clues to Z3 without trusting the generator. Z3 finds a story that fits, then is told "not that culprit and means" and asked again. If the answer is *impossible* (unsat), the solution is unique. It repeats this with each clue removed (key clues), with only the early rounds' clues (pacing), with each accomplice lie added, and with each objection slip added. The built-in reasoner must agree with Z3 on every answer, so a bug in one shows up as a disagreement instead of an unfair game.
+
+**Small groups.** Key clues are only dealt to the shared board and the first three seats, so the proof holds for any table of three or more players. Extra seats get true flavour clues that never make the case solvable early.
+
+## Benchmarks
+
+BENCHMARKS
+
+Reproduce with `npm run stats -- 200` (seeds 1 to N per tone, difficulty 2). CI runs 50 seeds per tone on Node 22 and 24 and uploads the numbers.
+
+## Limitations
+
+- Three settings, two tones, ten archetypes. Variety comes from combinations, not endless new content.
+- Facts are about places and objects at fixed half hour slots. There is no reasoning yet about motives, sounds, or overlapping time.
+- `checkReply` only understands location claims. Extracting claims from free speech is up to you.
+- A unique answer is guaranteed for the logic. Whether players *find* it depends on how clues are presented.
+- English only for now.
+
+## Roadmap
+
+- More settings and a content pack format, so others can ship their own houses and casts.
+- New fact types: heard (sounds through walls), timestamps between slots, locked doors.
+- Difficulty measured by proof length, not just by settings.
+- Optional multiple culprits and team crimes, still with a unique answer.
+- Translations.
+
+## Contributing
+
+Issues and pull requests are welcome, especially new settings and clue phrasing. See [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md). Found a case that looks unfair? Open an issue with the seed, tone and difficulty. That is exactly the kind of bug we most want to hear about.
 
 ## Prior art
 
@@ -122,4 +186,4 @@ Generating mysteries by computer is an old and lively idea. Researchers and hobb
 
 ## Licence
 
-MIT, copyright Dhiraj Kavuri.
+MIT, copyright Dhiraj Kavuri. See [LICENSE](LICENSE).

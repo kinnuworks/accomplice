@@ -29,7 +29,7 @@ function factTrue(c: Case, f: Fact): boolean {
 function allText(c: Case): string[] {
   return [c.title, c.intro, c.place, c.dateLine, c.victim.name, c.victim.description, c.crime.what,
     ...c.suspects.flatMap((s) => [s.name, s.role, s.motive, ...s.traits]),
-    ...c.clues.flatMap((cl) => [cl.title, cl.text, cl.short ?? '']), ...(c.briefing ?? []), ...c.suspects.map((s) => s.shortName ?? ''), ...c.rooms.map((r) => r.name), ...c.items.map((i) => i.name)];
+    ...c.clues.flatMap((cl) => [cl.title, cl.text, cl.short ?? '']), ...(c.briefing ?? []), ...(c.confession ?? []), c.headline?.title ?? '', (c.headline?.sub ?? '').replace('{DETECTIVE}', 'Sam'), ...c.suspects.map((s) => s.shortName ?? ''), ...c.rooms.map((r) => r.name), ...c.items.map((i) => i.name)];
 }
 
 describe('content banks', () => {
@@ -128,6 +128,13 @@ describe('generateCase', () => {
         expect(c.briefing!.length).toBeLessThanOrEqual(6);
         for (const line of c.briefing!) expect(line.split(/\s+/).length, line).toBeLessThanOrEqual(20);
         for (const cl of c.clues) expect(cl.text, cl.text).not.toMatch(/\bthey\b|\bthem\b/i);
+        // Reveal extras.
+        expect(c.confession).toHaveLength(3);
+        for (const line of c.confession!) expect(line.split(/\s+/).length, line).toBeLessThanOrEqual(25);
+        expect(c.headline!.title).toBe(c.headline!.title.toUpperCase());
+        expect(c.headline!.sub).toContain('{DETECTIVE}');
+        expect(c.paperName).toBeTruthy();
+        expect(c.clockChimes).toHaveLength(3);
         for (const text of allText(c)) {
           expect(text).not.toMatch(/\u2014/);
           expect(text).not.toMatch(/\{\w+\}/);

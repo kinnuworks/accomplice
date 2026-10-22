@@ -14,7 +14,8 @@
     "test": "vitest run",
     "stats": "tsx scripts/stats.ts",
     "typecheck": "tsc --noEmit",
-    "demo-fixture": "tsx scripts/demo-fixture.ts"
+    "demo-fixture": "tsx scripts/demo-fixture.ts",
+    "build": "tsup"
   },
   "dependencies": {
     "@accomplice/protocol": "workspace:*",
@@ -22,8 +23,9 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "tsup": "^9.0.0",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2",
+    "typescript": "^5.9.3",
     "vitest": "^5.0.5"
   }
 }

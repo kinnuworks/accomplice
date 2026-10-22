@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" font-family="Georgia, serif" role="img" aria-labelledby="t d">
+  <title id="t">How fairplay works</title>
+  <desc id="d">A seed goes into the generator, which writes a case. Z3 checks it. Cases that pass are played; cases that fail are thrown away and the next seed is tried.</desc>
+  <style>
+    .box { fill: #fffaf0; stroke: #4a2e4f; stroke-width: 2; }
+    .z3 { fill: #f3e9ff; }
+    .play { fill: #eaf6ee; }
+    .h { font-size: 22px; font-weight: 700; fill: #1d1a24; }
+    .s { font-family: system-ui, sans-serif; font-size: 14px; fill: #4a4352; }
+    .a { stroke: #b08a3e; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    .fail { stroke: #a33b3b; stroke-dasharray: 6 5; }
+    .lbl { font-family: system-ui, sans-serif; font-size: 13px; fill: #a33b3b; }
+    @media (prefers-color-scheme: dark) {
+      .box { fill: #221c29; stroke: #b08a3e; } .z3 { fill: #2b2036; } .play { fill: #1c2a22; }
+      .h { fill: #ece6f0; } .s { fill: #c3b9cc; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b08a3e"/></marker>
+  </defs>
+  <rect class="box" x="20" y="40" width="250" height="190" rx="14"/>
+  <text class="h" x="40" y="80">1. Generate</text>
+  <text class="s" x="40" y="110">seed + tone + difficulty</text>
+  <text class="s" x="40" y="135">true timeline on a floor plan</text>
+  <text class="s" x="40" y="160">lies and red herrings</text>
+  <text class="s" x="40" y="185">clues picked by counterexample</text>
+  <text class="s" x="40" y="210">dealt over three rounds</text>
+
+  <rect class="box z3" x="355" y="40" width="250" height="190" rx="14"/>
+  <text class="h" x="375" y="80">2. Verify with Z3</text>
+  <text class="s" x="375" y="110">exactly one culprit and means</text>
+  <text class="s" x="375" y="135">every key clue is necessary</text>
+  <text class="s" x="375" y="160">unsolvable before round 2</text>
+  <text class="s" x="375" y="185">accomplice lies stay safe</text>
+  <text class="s" x="375" y="210">two solvers must agree</text>
+
+  <rect class="box play" x="690" y="40" width="250" height="190" rx="14"/>
+  <text class="h" x="710" y="80">3. Play</text>
+  <text class="s" x="710" y="110">what each suspect knows</text>
+  <text class="s" x="710" y="135">check what they said</text>
+  <text class="s" x="710" y="160">test a theory: follows?</text>
+  <text class="s" x="710" y="185">objections and slips</text>
+  <text class="s" x="710" y="210">proof chain for the reveal</text>
+
+  <path class="a" d="M272 135 L350 135"/>
+  <path class="a" d="M607 135 L685 135"/>
+  <path class="a fail" d="M480 232 C480 290, 145 290, 145 236"/>
+  <text class="lbl" x="250" y="285">fails a check: throw it away, try the next seed</text>
+</svg>

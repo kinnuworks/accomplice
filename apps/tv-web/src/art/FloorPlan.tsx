@@ -12,6 +12,7 @@ interface Props {
   className?: string;
   width?: number;
   height?: number;
+  labelSize?: number;
 }
 
 const PAD = 0.35;
@@ -36,7 +37,7 @@ function iconFor(name: string): ReactNode {
   return <g {...s}><rect x="5" y="5" width="14" height="14" rx="1" /><path d="M5 12h14" /></g>;
 }
 
-export const FloorPlan = memo(function FloorPlan({ rooms, crimeRoom, highlight, tokens = [], className = '', width = 1000, height = 640 }: Props) {
+export const FloorPlan = memo(function FloorPlan({ rooms, crimeRoom, highlight, tokens = [], className = '', width = 1000, height = 640, labelSize = 30 }: Props) {
   if (!rooms.length) return null;
   const minX = Math.min(...rooms.map((r) => r.x)), minY = Math.min(...rooms.map((r) => r.y));
   const maxX = Math.max(...rooms.map((r) => r.x + r.w)), maxY = Math.max(...rooms.map((r) => r.y + r.h));
@@ -92,13 +93,16 @@ export const FloorPlan = memo(function FloorPlan({ rooms, crimeRoom, highlight, 
         const b = R(r);
         const isCrime = r.id === crimeRoom;
         const icon = Math.min(b.w, b.h) * 0.34;
+        const fs = labelSize;
+        const fit = r.name.length * fs * 0.5 > b.w - 16 ? b.w - 16 : undefined;
+        const showIcon = b.h > fs * 3.2;
         return (
           <g key={r.id} className={`plan-room ${isCrime ? 'is-crime' : ''} ${highlight === r.id ? 'is-hl' : ''}`} style={{ ['--i' as string]: i }}>
             <rect x={b.x + 3} y={b.y + 3} width={b.w - 6} height={b.h - 6} rx="4" className="plan-room-bg" />
             {isCrime && <rect x={b.x + 3} y={b.y + 3} width={b.w - 6} height={b.h - 6} rx="4" fill="url(#plan-hatch)" />}
             <rect x={b.x + 3} y={b.y + 3} width={b.w - 6} height={b.h - 6} rx="4" className="plan-room-wall" pathLength={100} />
-            <g className="plan-icon" transform={`translate(${b.x + b.w / 2 - icon / 2} ${b.y + b.h / 2 - icon * 0.85}) scale(${icon / 24})`}>{iconFor(r.name)}</g>
-            <text x={b.x + b.w / 2} y={b.y + b.h - Math.max(16, b.h * 0.12)} className="plan-label" textAnchor="middle">{r.name}</text>
+            {showIcon && <g className="plan-icon" transform={`translate(${b.x + b.w / 2 - icon / 2} ${b.y + b.h / 2 - icon * 0.85}) scale(${icon / 24})`}>{iconFor(r.name)}</g>}
+            <text x={b.x + b.w / 2} y={showIcon ? b.y + b.h - Math.max(14, b.h * 0.1) : b.y + b.h / 2 + fs * 0.35} className="plan-label" textAnchor="middle" style={{ fontSize: fs }} textLength={fit} lengthAdjust={fit ? 'spacingAndGlyphs' : undefined}>{r.name}</text>
             {isCrime && <text x={b.x + 16} y={b.y + 38} className="plan-crime-mark">!</text>}
           </g>
         );

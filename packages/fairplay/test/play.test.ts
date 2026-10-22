@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkReply, describeFact, evaluateTheory, generateCase, proofChain, publicView, safeLiesForAccomplice, sliceFor } from '../src/index.js';
+import { checkReply, describeFact, objectionSlip, evaluateTheory, generateCase, proofChain, publicView, safeLiesForAccomplice, sliceFor } from '../src/index.js';
 import { inMinTable } from '../src/verify.js';
 
 const c = generateCase({ seed: 3, tone: 'classic', difficulty: 2 });
@@ -108,5 +108,41 @@ describe('publicView and describeFact', () => {
   });
   it('describes facts plainly', () => {
     expect(describeFact(c, { k: 'at', s: culprit, room: c.crime.room, slot: 0 })).toBe(`${N(culprit)} was in the ${c.rooms.find((r) => r.id === c.crime.room)!.name} at ${c.slots[0].label}.`);
+  });
+});
+
+describe('objectionSlip', () => {
+  it('makes liars slip a true fact, and the culprit never confesses', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const k = generateCase({ seed, tone: seed % 2 ? 'classic' : 'cozy', difficulty: 2 });
+      for (const s of k.suspects) {
+        const o = objectionSlip(k, s.id);
+        const lies = k.lies.some((l) => l.s === s.id);
+        expect(o.wasLying).toBe(lies);
+        if (o.wasLying && 'slip' in o) {
+          const f = o.fact;
+          if (f.k === 'at') {
+            expect(k.truth.position[f.s][f.slot]).toBe(f.room);
+            expect(f.s === k.truth.culprit && f.slot === k.crime.slot).toBe(false);
+          }
+          if (f.k === 'notAt') expect(k.truth.position[f.s][f.slot]).not.toBe(f.room);
+          expect(o.slip).not.toMatch(/\u2014/);
+        } else if ('retort' in o) {
+          expect(o.retort.length).toBeGreaterThan(5);
+        }
+      }
+    }
+  });
+});
+
+describe('objectionSlip with claims', () => {
+  it('slips only when that answer contained a lie', () => {
+    const guilt = c.lies.find((l) => l.reason === 'guilt')!;
+    const lied = objectionSlip(c, culprit, [{ kind: 'location', s: culprit, room: guilt.claimedRoom, slot: guilt.slot }]);
+    expect(lied.wasLying).toBe(true);
+    expect(lied.fact && lied.fact.k === 'at' && lied.fact.slot !== c.crime.slot).toBe(true);
+    const honest = objectionSlip(c, culprit, [{ kind: 'location', s: culprit, room: c.truth.position[culprit][0], slot: 0 }]);
+    expect(honest.wasLying).toBe(false);
+    expect(honest.line.length).toBeGreaterThan(5);
   });
 });

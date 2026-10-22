@@ -15,22 +15,34 @@ export function estimateMs(line: Line): number {
 }
 
 let busy = false;
+let skip: (() => void) | null = null;
+/** Cut the current line short (OK during the briefing). */
+export function skipLine(): void { audio.stopVoice(); skip?.(); }
 async function perform(line: Line): Promise<void> {
   busy = true;
   const startedAt = performance.now();
   const est = estimateMs(line);
+  if (line.filler) audio.play('thinking');
   const h = audio.speak(line.audioUrl);
+  // warm the next part so streamed answers play back to back
+  const nextUrl = lineQueue[0]?.audioUrl;
+  if (nextUrl) audio.preload([nextUrl]);
   let pausedFor = 0;
   clock = () => h.elapsed() ?? performance.now() - startedAt - pausedFor;
   setState({ now: { line, startedAt, durationMs: est } });
-  const ok = await h.done;
+  const skipped = new Promise<'skip'>((r) => { skip = () => r('skip'); });
+  const ok = await Promise.race([h.done, skipped]);
   const played = performance.now() - startedAt;
-  if (!ok && played < est) await wait(est - played);
-  if (ok) { const d = h.duration(); if (d) clock = () => d; }
-  if (line.utteranceId) send({ t: 'tv:spoken', id: line.utteranceId });
-  await wait(1100);
-  last = line;
-  setState((s) => ({ now: null, lines: [...s.lines.slice(-40), line] }));
+  if (ok === false && played < est) await Promise.race([wait(est - played), skipped]);
+  skip = null;
+  if (ok === true) { const d = h.duration(); if (d) clock = () => d; }
+  if (line.utteranceId && line.final !== false) send({ t: 'tv:spoken', id: line.utteranceId });
+  // parts of the same streamed answer flow straight on; otherwise let the line breathe
+  const next = lineQueue[0];
+  const continues = !!next && next.utteranceId !== undefined && next.utteranceId === line.utteranceId;
+  if (!continues) await wait(line.filler ? 200 : 1100);
+  if (!line.filler) last = line;
+  setState((s) => ({ now: continues ? s.now : null, lines: line.filler ? s.lines : [...s.lines.slice(-40), line] }));
   busy = false;
 }
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));

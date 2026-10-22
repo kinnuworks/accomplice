@@ -6,7 +6,10 @@ import type { AddressInfo } from 'node:net';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { ElicitRequestSchema, CallToolResultSchema, LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
-import { createMcpHandler, createFakeGameApi, BOARD_URI, MCP_APP_MIME } from '../src/index.ts';
+import { createMcpHandler, createFakeGameApi, BOARD_URI, MCP_APP_MIME, MemoryRecordStore, JsonFileRecordStore } from '../src/index.ts';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { GameApi } from '../src/index.ts';
 
 const games = new Map<string, ReturnType<typeof createFakeGameApi>>();
@@ -15,7 +18,7 @@ const gameFor = (hh: string) => {
   if (!g) { g = createFakeGameApi({ stepMs: 15 }); games.set(hh, g); }
   return g;
 };
-const mcp = createMcpHandler((hh): GameApi => gameFor(hh));
+const mcp = createMcpHandler((hh): GameApi => gameFor(hh), { records: new MemoryRecordStore(), narrate: (t) => ({ audioUrl: `/audio/narrator-${t.length}.mp3` }) });
 let http: Server;
 let url: URL;
 
@@ -60,7 +63,7 @@ test('negotiates the 2025-11-25 protocol and lists the game tools with icons and
   assert.ok(client.getServerCapabilities()?.tasks, 'advertises tasks');
   const { tools } = await client.listTools();
   const names = tools.map((t) => t.name).sort();
-  assert.deepEqual(names, ['accuse', 'case_summary', 'examine_clue', 'get_hint', 'list_suspects', 'next_round', 'question_suspect', 'start_case']);
+  assert.deepEqual(names, ['accuse', 'case_summary', 'examine_clue', 'get_hint', 'list_suspects', 'my_detective_record', 'next_round', 'question_suspect', 'resume_case', 'send_to_tv', 'start_case']);
   for (const t of tools) {
     assert.ok(t.description && t.description.length > 30, `${t.name} has a description`);
     assert.ok(t.icons?.[0]?.src.startsWith('data:image/svg+xml'), `${t.name} has an icon`);
@@ -80,6 +83,10 @@ test('serves the evidence board as an MCP Apps resource', async () => {
   assert.equal(c.mimeType, MCP_APP_MIME);
   assert.match(c.text, /ui\/initialize/);
   assert.match(c.text, /ui\/notifications\/tool-result/);
+  const { Script } = await import('node:vm');
+  const js = c.text.slice(c.text.indexOf('<script>') + 8, c.text.lastIndexOf('</script>'));
+  assert.doesNotThrow(() => new Script(js), 'the board script parses');
+  for (const v of ['case', 'suspects', 'reply', 'clue', 'clues', 'hint', 'confirm', 'verdict', 'record', 'handoff']) assert.match(js, new RegExp(`\\b${v}: \\(d\\)`), `board renders ${v}`);
   await client.close();
 });
 
@@ -238,7 +245,7 @@ test('the game server room API is adapted automatically, one room per household'
     state: (code: string) => ({ phase: rooms.find((r) => r.code === code)?.phase ?? 'lobby', round: 1, case: rooms.find((r) => r.code === code)?.phase === 'investigate' ? pub : null }),
   };
   assert.ok(isRoomGameApi(roomApi));
-  const handler = createMcpHandler(roomApi);
+  const handler = createMcpHandler(roomApi, { records: new MemoryRecordStore() });
   const srv = createServer((req, res) => void handler(req, res));
   await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
   const u = new URL(`http://127.0.0.1:${(srv.address() as AddressInfo).port}/mcp`);
@@ -264,4 +271,150 @@ test('the game server room API is adapted automatically, one room per household'
   await handler.close();
   srv.closeAllConnections();
   await new Promise((r) => srv.close(r));
+});
+
+// ---------- context across sessions, hints, handoff, narration ----------
+
+async function serve(handler: ReturnType<typeof createMcpHandler>) {
+  const srv = createServer((req, res) => void handler(req, res));
+  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+  const u = new URL(`http://127.0.0.1:${(srv.address() as AddressInfo).port}/mcp`);
+  const client = async (household: string) => {
+    const c = new Client({ name: 't', version: '1' }, { capabilities: { elicitation: { form: {} } } });
+    c.setRequestHandler(ElicitRequestSchema, async () => ({ action: 'accept', content: { confirm: true } }));
+    await c.connect(new StreamableHTTPClientTransport(u, { requestInit: { headers: { 'x-household-id': household } } }));
+    return c;
+  };
+  const stop = async () => { await handler.close(); srv.closeAllConnections(); await new Promise((r) => srv.close(r)); };
+  return { client, stop };
+}
+
+test('the detective record and an unfinished case survive a server restart', async () => {
+  const file = join(await mkdtemp(join(tmpdir(), 'accomplice-')), 'records.json');
+
+  // night one: solve a case, start another, ask two questions, then everyone goes to bed
+  const night1 = await serve(createMcpHandler(() => night1Game, { records: new JsonFileRecordStore(file) }));
+  const night1Game = createFakeGameApi({ stepMs: 5 });
+  let c = await night1.client('the-smiths');
+  await c.callTool({ name: 'start_case', arguments: {} });
+  await c.callTool({ name: 'question_suspect', arguments: { suspect: 'cook', question: 'Where were you?' } });
+  await c.callTool({ name: 'accuse', arguments: { culprit: 'gardener', item: 'candlestick' } });
+  await c.callTool({ name: 'start_case', arguments: { tone: 'cozy' } });
+  await c.callTool({ name: 'question_suspect', arguments: { suspect: 'Pip', question: 'Where were you at three?' } });
+  await c.callTool({ name: 'question_suspect', arguments: { suspect: 'Pip', question: 'Did you see anything?' } });
+  await c.close();
+  await night1.stop();
+
+  // night two: a new server process, a new game engine with no memory, the same records file
+  const night2Game = createFakeGameApi({ stepMs: 5 });
+  const night2 = await serve(createMcpHandler(() => night2Game, { records: new JsonFileRecordStore(file) }));
+  c = await night2.client('the-smiths');
+  const rec = await c.callTool({ name: 'my_detective_record', arguments: {} });
+  assert.equal(sc(rec).view, 'record');
+  assert.equal(sc(rec).record.solved, 1);
+  assert.equal(sc(rec).record.casesStarted, 2);
+  assert.equal(sc(rec).record.favouriteSuspect.name, 'Pip Hollow');
+  assert.match(sc(rec).speech, /Vanishing Birthday Cake is still open/);
+
+  const resumed = await c.callTool({ name: 'resume_case', arguments: {} });
+  assert.equal(sc(resumed).view, 'case');
+  assert.equal(sc(resumed).resumed, true);
+  assert.match(sc(resumed).case.title, /Birthday Cake/);
+  assert.match(sc(resumed).speech, /You had asked 2 questions, mostly of Pip Hollow/);
+
+  // another household sees none of it
+  const other = await night2.client('the-joneses');
+  const empty = await other.callTool({ name: 'my_detective_record', arguments: {} });
+  assert.match(sc(empty).speech, /No cases on your record yet/);
+  await c.close(); await other.close();
+  await night2.stop();
+});
+
+test('hints give one deduction step and wait until the players act on it', async () => {
+  const game = createFakeGameApi({ stepMs: 5 });
+  const s = await serve(createMcpHandler(() => game, { records: new MemoryRecordStore() }));
+  const c = await s.client('hints');
+  await c.callTool({ name: 'start_case', arguments: {} });
+  const h1 = await c.callTool({ name: 'get_hint', arguments: {} });
+  const h2 = await c.callTool({ name: 'get_hint', arguments: {} });
+  assert.equal(sc(h1).limited, false);
+  assert.equal(sc(h2).limited, true, 'a second hint with no move in between repeats the first');
+  assert.equal(sc(h2).hint.text, sc(h1).hint.text);
+  assert.match(sc(h2).speech, /^One step at a time/);
+  await c.callTool({ name: 'question_suspect', arguments: { suspect: 'cook', question: 'Where were you at nine?' } });
+  const h3 = await c.callTool({ name: 'get_hint', arguments: {} });
+  assert.equal(sc(h3).limited, false);
+  assert.notEqual(sc(h3).hint.text, sc(h1).hint.text);
+  for (const h of [h1, h3]) assert.ok(sc(h).hint.text.split(/[.?!]\s/).length <= 2, 'one short step');
+  await c.close();
+  await s.stop();
+});
+
+test('send_to_tv hands the case to the Fire TV, and the narrator voice rides along', async () => {
+  const { client } = await connect('hh-tv');
+  await client.callTool({ name: 'start_case', arguments: {} });
+  const r = await client.callTool({ name: 'send_to_tv', arguments: {} });
+  assert.equal(sc(r).view, 'handoff');
+  assert.equal(sc(r).roomCode, 'MRLW');
+  assert.match(sc(r).tvUrl, /^http:\/\/127\.0\.0\.1:\d+\/tv\/\?room=MRLW$/);
+  assert.match(sc(r).speech, /enter the code M R L W/);
+  assert.match(sc(r).narrationUrl, /\/audio\/narrator-\d+\.mp3$/, 'narrator audio for spoken lines');
+  const ask = await client.callTool({ name: 'question_suspect', arguments: { suspect: 'cook', question: 'Where were you?' } });
+  assert.equal(sc(ask).narrationUrl, undefined, 'suspects speak in their own voice, not the narrator');
+  await client.close();
+});
+
+test('the case of the week uses the same seed for every household', async () => {
+  const { weekSeed, isoWeek } = await import('../src/records.ts');
+  assert.match(isoWeek(new Date(2026, 9, 23)), /^2026-W43$/);
+  assert.equal(weekSeed('2026-W43'), weekSeed('2026-W43'));
+  assert.notEqual(weekSeed('2026-W43'), weekSeed('2026-W44'));
+  const { client } = await connect('hh-weekly');
+  const r = await client.callTool({ name: 'start_case', arguments: { weekly: true } });
+  assert.match(sc(r).speech, /^The case of the week/);
+  const rec = await client.callTool({ name: 'my_detective_record', arguments: {} });
+  assert.equal(sc(rec).record.caseOfTheWeek.week, isoWeek());
+  await client.close();
+});
+
+test('ships an open-format SKILL.md that covers every tool and the safety rules', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const md = await readFile(new URL('../skill/accomplice/SKILL.md', import.meta.url), 'utf8');
+  const fm = md.match(/^---\n([\s\S]*?)\n---\n/);
+  assert.ok(fm, 'has YAML frontmatter');
+  assert.match(fm![1]!, /^name: accomplice$/m, 'name matches the folder');
+  assert.match(fm![1]!, /^description: .{40,1024}$/m);
+  const { client } = await connect('hh-skill');
+  const { tools } = await client.listTools();
+  for (const t of tools) assert.ok(md.includes(`\`${t.name}\``), `SKILL.md explains ${t.name}`);
+  assert.match(md, /Never reveal the solution/);
+  assert.match(md, /Always confirm an accusation/);
+  assert.doesNotMatch(md, /\u2014/, 'no em dashes');
+  const res = await client.readResource({ uri: 'accomplice://skill/SKILL.md' });
+  assert.equal((res.contents[0] as { text: string }).text, md, 'served as an MCP resource too');
+  await client.close();
+});
+
+test('the room adapter uses the server hint and narrator when they exist', async () => {
+  const { fromRoomApi } = await import('../src/index.ts');
+  const pub = { id: 'c', tone: 'classic' as const, title: 'T', place: 'P', dateLine: 'D', intro: 'I', victim: { name: 'V', description: '' },
+    crime: { room: 'lib', slot: 0, what: 'was struck down' }, rooms: [{ id: 'lib', name: 'Library' }], slots: [{ id: 0, label: '9:00 pm' }],
+    suspects: [{ id: 'cook', name: 'Ada', role: 'the cook', motive: 'm' }], items: [] };
+  const calls: string[] = [];
+  const roomApi = {
+    createRoom: () => ({ code: 'ABCD', joinUrl: '' }), listRooms: () => [{ code: 'ABCD', phase: 'investigate', players: 0 }],
+    startCase: async () => pub, listSuspects: () => [], ask: async () => ({ text: '', speaker: '', speakerName: '' }),
+    examineClue: () => ({ id: 'x', kind: 'physical' as const, title: 'X', text: '', round: 1 }),
+    board: () => ({ clues: [{ id: 'x', kind: 'physical' as const, title: 'X', text: '', round: 1 }], round: 1, phase: 'investigate' }),
+    accuse: async () => ({ correct: true, culprit: { id: 'cook', name: 'Ada' }, item: 'pin', steps: [] }),
+    state: () => ({ phase: 'investigate', round: 1, case: pub }),
+    hint: (code: string) => { calls.push(code); return { text: 'Check who was seen in the hall at nine.', clueId: 'x', hintsLeft: 2 }; },
+    narrate: async (t: string) => ({ audioUrl: `/audio/n-${t.length}.mp3`, captionChunks: [] }),
+  };
+  const g = fromRoomApi(roomApi)('den');
+  const h = await g.hint();
+  assert.deepEqual(calls, ['ABCD']);
+  assert.equal(h.text, 'Check who was seen in the hall at nine.');
+  assert.equal(h.hintsLeft, 2);
+  assert.deepEqual(await g.narrate!('hello'), { audioUrl: '/audio/n-5.mp3' });
 });

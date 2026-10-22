@@ -1,5 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import '@fontsource/playfair-display/latin-600.css';
+import '@fontsource/playfair-display/latin-700.css';
+import '@fontsource/playfair-display/latin-700-italic.css';
+import '@fontsource/inter/latin-500.css';
+import '@fontsource/special-elite/latin-400.css';
 import '@fontsource/playfair-display/latin-800.css';
 import '@fontsource/playfair-display/latin-600-italic.css';
 import '@fontsource/inter/latin-400.css';
@@ -11,8 +15,8 @@ import './styles/base.css';
 import './styles/screens.css';
 import { App } from './App';
 import { installTextures } from './art/textures';
-import { reducedMotion } from './env';
+import { applySettings } from './settings';
 
 installTextures();
-if (reducedMotion()) document.documentElement.classList.add('reduced-motion');
+applySettings();
 createRoot(document.getElementById('root')!).render(<App />);

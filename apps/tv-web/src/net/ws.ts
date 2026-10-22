@@ -2,6 +2,11 @@ import type { ClientToServer, ServerToClient } from '@accomplice/protocol';
 import { receive, setState, type Link } from './store';
 
 /** Live connection to the game server with automatic reconnect. */
+// "Continue on your Fire TV": /tv/?room=CODE attaches this TV to an existing room instead of making one.
+const handoff = new URLSearchParams(location.search).get('room')?.toUpperCase() ?? null;
+if (handoff) { try { sessionStorage.setItem('accomplice.room', handoff); } catch { /* storage blocked */ } }
+let handoffCode: string | null = handoff;
+
 export function connectServer(): Link {
   let ws: WebSocket | null = null;
   let closed = false;
@@ -11,8 +16,8 @@ export function connectServer(): Link {
 
   const url = () => {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    let code = '';
-    try { code = sessionStorage.getItem('accomplice.room') ?? ''; } catch { /* storage may be blocked */ }
+    let code = handoffCode ?? '';
+    try { code = sessionStorage.getItem('accomplice.room') ?? code; } catch { /* storage may be blocked */ }
     return `${proto}://${location.host}/ws?role=tv${code ? `&room=${encodeURIComponent(code)}` : ''}`;
   };
 
@@ -53,6 +58,7 @@ export function connectServer(): Link {
     },
     close() {
       closed = true;
+      handoffCode = null;
       clearInterval(pingTimer);
       try { sessionStorage.removeItem('accomplice.room'); } catch { /* ignore */ }
       ws?.close();

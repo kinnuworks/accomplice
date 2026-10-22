@@ -40,6 +40,9 @@ export interface SettingDef {
   place: string;
   /** "still {aboard}": in the house, aboard the train... */
   aboard: string;
+  /** Local paper for the reveal's front page, and the name it prints in headlines. */
+  paperName: string;
+  headlineName: string;
   rooms: RoomDef[];
   doors: [string, string][];
   tones: Record<Tone, ToneDef>;
@@ -55,12 +58,14 @@ export const SETTINGS: SettingDef[] = [
     scene: 'scenes/ashby-hall.webp',
     place: 'Ashby Hall, a creaking country house in the Cotswolds',
     aboard: 'in the house',
+    paperName: 'The Cotswold Gazette',
+    headlineName: 'ASHBY HALL',
     rooms: [
       { id: 'library', name: 'Library', x: 0, y: 0, w: 5, h: 4, caught: ['reading the host\'s private diary and gasping at the good bits', 'asleep under a newspaper, snoring like a tuba', 'hiding a library book that was due back in 1998'] },
       { id: 'study', name: 'Study', x: 5, y: 0, w: 4, h: 4, caught: ['practising an acceptance speech to the mirror', 'trying on the host\'s spare monocle', 'reading other people\'s postcards'] },
       { id: 'conservatory', name: 'Conservatory', x: 9, y: 0, w: 7, h: 4, caught: ['talking tenderly to the orchids', 'doing yoga very badly behind a palm', 'singing opera to a cactus'] },
       { id: 'hall', name: 'Great Hall', x: 0, y: 4, w: 6, h: 5, caught: ['sliding down the banister', 'waltzing alone with a coat stand', 'hiding from the vicar inside a suit of armour'] },
-      { id: 'dining', name: 'Dining Room', x: 6, y: 4, w: 5, h: 5, caught: ['swapping the place cards to sit next to their crush', 'licking the gravy boat', 'polishing off everyone\'s leftover pudding'] },
+      { id: 'dining', name: 'Dining Room', x: 6, y: 4, w: 5, h: 5, caught: ['swapping the place cards to sit next to a secret crush', 'licking the gravy boat', 'polishing off everyone\'s leftover pudding'] },
       { id: 'kitchen', name: 'Kitchen', x: 11, y: 4, w: 5, h: 3, caught: ['eating trifle straight from the bowl', 'feeding sausages to the dog under the table', 'secretly re-salting the soup'] },
       { id: 'pantry', name: 'Pantry', x: 11, y: 7, w: 5, h: 2, caught: ['eating jam with a teaspoon from the jar', 'hiding behind the flour sacks to avoid a bore', 'counting the biscuits, twice'] },
     ],
@@ -110,6 +115,8 @@ export const SETTINGS: SettingDef[] = [
     scene: 'scenes/sapphire-express.webp',
     place: 'The Sapphire Express, a luxury night train crossing the Alps',
     aboard: 'aboard the train',
+    paperName: 'The Express Bulletin',
+    headlineName: 'SAPPHIRE EXPRESS',
     rooms: [
       { id: 'kitchen', name: 'Galley', x: 0, y: 0, w: 4, h: 4, caught: ['eating the chef\'s practice eclairs', 'hiding from the ticket inspector in a flour bin', 'teaching a lobster to wave'] },
       { id: 'dining', name: 'Dining Car', x: 4, y: 0, w: 4, h: 4, caught: ['pocketing the sugar cubes', 'swapping the menu cards for a joke', 'drinking soup straight from the tureen'] },
@@ -165,6 +172,8 @@ export const SETTINGS: SettingDef[] = [
     scene: 'scenes/marigold-manor.webp',
     place: 'Marigold Manor, a hill station villa above the tea gardens of Darjeeling',
     aboard: 'in the villa',
+    paperName: 'The Hill Station Herald',
+    headlineName: 'MARIGOLD MANOR',
     rooms: [
       { id: 'veranda', name: 'Veranda', x: 0, y: 0, w: 6, h: 3, caught: ['dancing in the rain like nobody was watching', 'trying to teach the parrot rude words', 'catching raindrops on their tongue'] },
       { id: 'drawing', name: 'Drawing Room', x: 0, y: 3, w: 6, h: 6, caught: ['rearranging the family photos to put themselves in front', 'napping on the good sofa with shoes on', 'reading the host\'s letters by the lamp'] },
@@ -225,6 +234,8 @@ export interface ArchetypeDef {
   voices: string[];
   /** Briefing one-liners, five words or so. */
   quip: Record<Tone, string[]>;
+  /** First confession line, in their own voice. {V} = victim short reference. */
+  confess: Record<Tone, string>;
   traits: string[][];
   motive: Record<Tone, string[]>;   // {V} = victim short reference
 }
@@ -238,6 +249,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Kajal', 'Danielle', 'Ruth'],
     traits: [['warm but bossy', 'calls everyone "pet"', 'measures everything in pinches'], ['brisk', 'talks about food when nervous', 'suspicious of anyone thin']],
     quip: { classic: ['rules the kitchen, holds grudges', 'secret recipes, secret resentments'], cozy: ['bakes like an angel, sulks too', 'knows every crumb by name'] },
+    confess: { classic: 'Thirty years I fed {V}. Thirty years of soup, and not one word of thanks. Not one.', cozy: 'Thirty years I have baked for this family, and suddenly my sponge is "a little bit dry"?' },
     motive: {
       classic: ['{V} was about to replace her with a fancy chef from Paris.', '{V} called her steak and kidney pie "a war crime" in front of guests.'],
       cozy: ['Was told her own cake was "a little bit dry". She has not recovered.', 'Was not asked to bake for the party, after thirty years of baking for every party.'],
@@ -249,6 +261,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Stephen', 'Brian', 'Matthew'],
     traits: [['slow and thoughtful', 'compares people to plants', 'mumbles'], ['gruff', 'one word answers', 'secretly sentimental']],
     quip: { classic: ['green fingers, dark moods', 'loves roses more than people'], cozy: ['prize vegetables, prize sulks', 'talks to plants, not people'] },
+    confess: { classic: '{V} wanted my roses gone. Forty years of roses. Some things a gardener simply cannot forgive.', cozy: 'I grew that rhubarb with my own two hands. A man has his pride.' },
     motive: {
       classic: ['{V} planned to pave over his prize roses for a tennis court.', '{V} accused him of selling the orchids. He did, but only the ugly ones.'],
       cozy: ['Grew a rival entry for the village show and lost by a whisker.', 'Believes the treat was baked with his stolen rhubarb.'],
@@ -260,6 +273,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Arthur', 'Gregory', 'Brian'],
     traits: [['impeccably polite', 'answers questions with questions', 'dry as toast'], ['formal', 'pained sighs', 'notices everything']],
     quip: { classic: ['sees everything, says nothing', 'polished silver, tarnished patience'], cozy: ['polite, hungry, and dieting', 'sees everything, says very little'] },
+    confess: { classic: 'I served {V} for forty years without a single thank you. Tonight, I served myself.', cozy: 'Polishing spoons all day, on a diet, smelling all that. Even a butler has limits.' },
     motive: {
       classic: ['Forty years of service, and {V} forgot his name at dinner. Twice.', '{V} was about to sell the house, and the butler with it.'],
       cozy: ['Has been on a strict diet since Tuesday and is not coping.', 'Was told to polish two hundred spoons for a party he was not invited to.'],
@@ -271,6 +285,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Amy', 'Olivia', 'Joanna'],
     traits: [['bored', 'drawls', 'finds everything "too tedious"'], ['sharp tongued', 'laughs at the wrong moments', 'very quick']],
     quip: { classic: ['bored, broke, and about to inherit', 'pearls, poise, and impatience'], cozy: ['wants the best party, always', 'sparkly shoes, sweet tooth'] },
+    confess: { classic: 'Darling, I was simply tired of waiting. {V} was taking forever, and I have bills.', cozy: 'I wanted the best party anyone had ever seen. Mine. Not this one.' },
     motive: {
       classic: ['Inherits a fortune the moment {V} stops breathing, and has been counting.', '{V} forbade her engagement to a penniless saxophonist.'],
       cozy: ['Wanted it for her own party next week. Hers was going to be better.', 'Was told she could not have any until after the speeches.'],
@@ -282,6 +297,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Ruth', 'Danielle', 'Kajal', 'Amy'],
     traits: [['precise', 'nervous laugh', 'over explains'], ['calm', 'clinical', 'diagnoses everyone she meets']],
     quip: { classic: ['kind hands, unpaid debts', 'steady pulse, shaky past'], cozy: ['anti sugar, pro biscuits', 'diagnoses everyone, then snacks'] },
+    confess: { classic: '{V} knew things about me. Doctors are meant to keep secrets. So I kept mine.', cozy: 'Purely for science, you understand. Someone had to test it. Thoroughly.' },
     motive: {
       classic: ['{V} knew about the medical licence she "mislaid" in Lisbon.', '{V} owed her three years of unpaid house calls.'],
       cozy: ['Says sugar is the root of all evil, yet keeps being seen near the biscuit tin.', 'Wants to prove, scientifically, that it was not that delicious.'],
@@ -293,6 +309,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Gregory', 'Arthur', 'Brian'],
     traits: [['booming', 'tells long war stories', 'easily offended'], ['barks', 'calls everyone "young man"', 'surprisingly soft hearted']],
     quip: { classic: ['loud stories, quiet debts', 'medals, some of them his'], cozy: ['still cross about last year', 'big voice, soft heart'] },
+    confess: { classic: '{V} humiliated me over cards and over my war record. A soldier settles his accounts.', cozy: "I was robbed at last year's show and nobody listened. Well. Everyone is listening now." },
     motive: {
       classic: ['Lost his medals to {V} in a game of cards and wants them back.', '{V} told everyone the Colonel spent the war in a supply depot. He did.'],
       cozy: ['Believes, loudly and often, that he was robbed at last year\'s show.', 'Was not allowed to give his forty minute speech.'],
@@ -304,6 +321,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Olivia', 'Joanna', 'Amy', 'Ruth'],
     traits: [['dreamy', 'talks in colours', 'dramatic sighs'], ['intense', 'stares too long', 'finds beauty in odd things']],
     quip: { classic: ['brilliant brush, wounded pride', 'sees beauty, keeps grudges'], cozy: ['paints everything, eats everything', 'dreamy, and suspiciously sticky'] },
+    confess: { classic: '{V} called my work a crime against canvas. So I painted a real one.', cozy: 'It was far too beautiful to eat. I had to rescue it. For art.' },
     motive: {
       classic: ['{V} called her portrait of him "a crime against canvas" in front of everyone.', '{V} refused to pay for a painting he commissioned and then hated.'],
       cozy: ['Needed something marvellous for her next still life painting.', 'Thinks it was too beautiful to be eaten and must be "saved".'],
@@ -315,6 +333,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Danielle', 'Joanna', 'Ruth', 'Kajal'],
     traits: [['gossipy', 'speaks in headlines', 'name drops constantly'], ['quick', 'answers with questions', 'scribbles notes']],
     quip: { classic: ['writes everything down. Everything.', 'ink, gossip, and leverage'], cozy: ['nose for news, and cake', 'needs a front page, fast'] },
+    confess: { classic: 'Every great column needs an ending. {V} was about to ruin mine, so I wrote one.', cozy: 'Nothing ever happens round here. I simply needed a front page. A really good one.' },
     motive: {
       classic: ['{V} threatened to sue over her column. She has a much juicier one ready.', '{V} knew the real name behind her pen name.'],
       cozy: ['A scandal would make a cracking front page for the parish newsletter.', 'Has not had a good story since the vicar\'s bicycle went missing.'],
@@ -326,6 +345,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Matthew', 'Stephen', 'Gregory'],
     traits: [['theatrical', 'refers to himself in the third person', 'flourishes'], ['smooth', 'deflects with jokes', 'secretly insecure']],
     quip: { classic: ['now you see him', 'tricks, debts, and a cape'], cozy: ['promised a vanishing act', 'his rabbit was not invited'] },
+    confess: { classic: '{V} gave away my secrets. A magician without secrets is just a man in a cape.', cozy: 'I promised everyone a vanishing act. I am a professional. I deliver.' },
     motive: {
       classic: ['{V} told the whole party how the sawing in half trick works.', '{V} was his biggest investor, and wanted the money back.'],
       cozy: ['Promised the guests a vanishing act. Perhaps he delivered.', 'His rabbit was not invited and he took it personally.'],
@@ -337,6 +357,7 @@ export const ARCHETYPES: ArchetypeDef[] = [
     voices: ['Matthew', 'Stephen', 'Brian'],
     traits: [['charming', 'sulky', 'borrows things'], ['jittery', 'talks fast', 'always hungry']],
     quip: { classic: ['charming, broke, and desperate', 'all smiles, no savings'], cozy: ['always hungry. Always.', 'manners pending, appetite huge'] },
+    confess: { classic: 'Not one penny more, {V} said. Well. Now it is every penny.', cozy: 'I was hungry. I am always hungry. Nobody ever believes me.' },
     motive: {
       classic: ['Owes {V} a small fortune and was told "not one penny more".', '{V} cut him out of the will last Tuesday.'],
       cozy: ['Is always hungry. Always.', 'Was told he could have a slice "when you learn some manners".'],
@@ -357,3 +378,43 @@ export const EMPTY_ROOM_SIGNS = [
   'the door was still wedged shut with yesterday\'s newspaper',
   'the dust on the floor shows not a single footprint',
 ];
+
+export const CONFESSION_METHOD: Record<Tone, string[]> = {
+  classic: [
+    'At {T} I slipped into the {C} with the {I} from the {H}. {V} barely looked up.',
+    'At {T} I was in the {C}, the {I} from the {H} in hand. All very quiet.',
+  ],
+  cozy: [
+    'At {T} I tiptoed into the {C} with the {I} from the {H}. Easy as pie.',
+    'At {T} I nipped into the {C} with the {I}. Nobody looked twice.',
+  ],
+};
+
+export const CONFESSION_CLOSER: Record<Tone, string[]> = {
+  classic: ['I regret nothing, except the soup.', 'Do spell my name correctly in the papers.', 'You were cleverer than you look. Not by much.'],
+  cozy: ['Worth it. Absolutely worth it.', 'I regret nothing. Well, maybe a little.', 'Next year I am hiding it much better.'],
+};
+
+export const HEADLINES: Record<Tone, string[]> = {
+  classic: ['{N} DINNER ENDS IN DISGRACE', 'SCANDAL AT {N}', '{N} MYSTERY CRACKED'],
+  cozy: ['GREAT {X} CAPER CRACKED', '{X} THIEF UNMASKED AT {N}', '{N} {X} MYSTERY SOLVED'],
+};
+
+export const HEADLINE_SUBS = [
+  '{R} unmasked; {DETECTIVE} toasts a famous victory',
+  '{S}, {RL}, confesses all; {DETECTIVE} cracks the case',
+  '{R} caught out; {DETECTIVE} takes a well earned bow',
+];
+
+export const RETORTS: Record<Tone, string[]> = {
+  classic: [
+    'How dare you. Every word I said was true, and I resent the implication.',
+    'Objection overruled, by me. I have told you nothing but the truth.',
+    'I beg your pardon? Check your clues before you insult me.',
+  ],
+  cozy: [
+    'Hey! I told the truth, the whole truth, and nothing but the truth!',
+    'Rude! Everything I said was completely true.',
+    'Objection? Pfft. I am as honest as a puppy.',
+  ],
+};
