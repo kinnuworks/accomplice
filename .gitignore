@@ -4,3 +4,5 @@ dist
 *.log
 .cache
 audio-cache
+apps/vega/build
+apps/vega/node_modules

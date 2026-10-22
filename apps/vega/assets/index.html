@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>Accomplice</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #140f1c; color: #f3e7d3; font-family: Georgia, serif; }
+  main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; text-align: center; }
+  h1 { font-size: 96px; margin: 0; color: #e8b85a; letter-spacing: 2px; }
+  p { font-size: 34px; margin: 0; max-width: 1200px; line-height: 1.4; }
+  button { font: inherit; font-size: 34px; padding: 18px 48px; border-radius: 999px; border: 3px solid #e8b85a; background: transparent; color: #f3e7d3; }
+  button:focus { outline: 6px solid #f6d58e; outline-offset: 6px; background: #2a1f38; }
+</style>
+</head>
+<body>
+<main role="main">
+  <h1>Accomplice</h1>
+  <p id="msg">We can't reach the game right now. Check that the game server is running, then press OK to try again.</p>
+  <button id="retry" autofocus>Try again</button>
+</main>
+<script>
+  var params = new URLSearchParams(location.search);
+  var target = params.get('server');
+  var btn = document.getElementById('retry');
+  btn.focus();
+  btn.addEventListener('click', function () { if (target) location.href = target; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && target) location.href = target; });
+</script>
+</body>
+</html>
