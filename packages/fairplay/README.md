@@ -156,7 +156,18 @@ Think of a case as a giant logic puzzle. The unknowns are: which room each suspe
 
 ## Benchmarks
 
-BENCHMARKS
+Measured on 23 October 2026 with `npm run stats -- 200` (seeds 1 to 200 per tone, difficulty 2), Node 26, Apple M5 laptop with 10 cores. The machine was busy with other work at the time (load average about 35), so treat the timings as an upper bound.
+
+| | classic | cozy |
+| --- | --- | --- |
+| Cases that verify on the first seed | **200 / 200** | **200 / 200** |
+| Earliest round a table can solve it | round 3, every case | round 3, every case |
+| Median key clues per case | 4 | 4 |
+| `generateVerifiedCase` tries (50 runs) | median 1, max 1 | median 1, max 1 |
+| Median time to generate | 131 ms | 99 ms |
+| Median time to verify with Z3 | 1,070 ms | 674 ms |
+
+On a quiet run of the same machine, before the objection checks were added, verification took a median of 151 ms (classic) and 220 ms (cozy). Each verification is roughly 60 Z3 queries: uniqueness, one per clue for necessity, one per round, and one per accomplice lie and objection slip.
 
 Reproduce with `npm run stats -- 200` (seeds 1 to N per tone, difficulty 2). CI runs 50 seeds per tone on Node 22 and 24 and uploads the numbers.
 

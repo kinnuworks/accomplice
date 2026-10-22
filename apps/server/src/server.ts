@@ -140,7 +140,8 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Buil
       if (typeof m.mountMcp === 'function') { await m.mountMcp(app, { api, path: '/mcp' }); mcpStatus = 'mounted'; }
       else if (typeof m.registerMcp === 'function') { await m.registerMcp(app, { api, path: '/mcp' }); mcpStatus = 'mounted'; }
       else if (typeof m.createMcpHandler === 'function') {
-        const handler = await m.createMcpHandler(api, cfg.publicUrl ? { publicBaseUrl: cfg.publicUrl } : {});
+        // Records go wherever ACCOMPLICE_RECORDS / ACCOMPLICE_RECORDS_TABLE say (the MCP package reads them).
+        const handler = await m.createMcpHandler(api, { ...(cfg.publicUrl ? { publicBaseUrl: cfg.publicUrl } : {}), narrate: (t: string) => api.narrate(t) });
         app.all('/mcp', async (req, reply) => { reply.hijack(); await handler(req.raw, reply.raw, req.body); });
         app.addHook('onClose', async () => { await handler.close?.(); });
         mcpStatus = 'mounted';

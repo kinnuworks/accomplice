@@ -8,11 +8,20 @@ ARG NODE_IMAGE=node:24-bookworm-slim
 FROM ${NODE_IMAGE} AS build
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 CI=1 \
-    npm_config_enable_global_virtual_store=false
+    npm_config_enable_global_virtual_store=false \
+    npm_config_store_dir=/pnpm/store \
+    npm_config_fetch_timeout=600000 npm_config_fetch_retries=5 npm_config_network_concurrency=8
 RUN npm install -g pnpm@11.25.0
 WORKDIR /app
+# Download every package from the lockfile alone, so this slow layer is reused until the lockfile changes.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+RUN --mount=type=cache,id=accomplice-pnpm,target=/pnpm/store \
+    --mount=type=cache,id=accomplice-pnpm-meta,target=/root/.cache/pnpm \
+    pnpm fetch
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=accomplice-pnpm,target=/pnpm/store \
+    --mount=type=cache,id=accomplice-pnpm-meta,target=/root/.cache/pnpm \
+    pnpm install --frozen-lockfile --offline
 # vite build only: type checks run in CI and locally, a type error should not block a hotfix deploy.
 RUN pnpm --filter @accomplice/tv-web --filter @accomplice/phone --filter @accomplice/echo-sim exec vite build
 

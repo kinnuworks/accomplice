@@ -61,3 +61,23 @@ describe('GameApi (for the MCP server)', () => {
     expect(res.steps.length).toBeGreaterThan(0);
   });
 });
+
+describe('GameApi hint and narrate', () => {
+  it('gives one elimination step at a time and never the culprit', async () => {
+    const { api } = built;
+    const { code } = api.createRoom({ tone: 'classic', seed: 9 });
+    await api.startCase(code);
+    await api.next(code); await api.next(code);
+    const room = built.hub.get(code)!;
+    const culprit = room.case!.suspects.find((s) => s.id === room.case!.truth.culprit)!;
+    const seen = new Set<string>();
+    for (let i = 0; i < 6; i++) {
+      const h = api.hint(code);
+      expect(h.text).not.toMatch(/Case closed|did it/);
+      if (h.clueId) { expect(seen.has(h.clueId)).toBe(false); seen.add(h.clueId); expect(h.text).not.toContain(`${culprit.name} was`); }
+    }
+    expect(seen.size).toBeGreaterThan(0);
+    const n = await api.narrate('  "Good evening, detectives."  ');
+    expect(n.captionChunks).toEqual(['Good evening, detectives.']);
+  });
+});

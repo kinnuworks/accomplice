@@ -2,6 +2,8 @@
 import type { BoardState, Clue, PublicCase, RoomState, Theory, TheoryVerdict, Tone, Utterance } from '@accomplice/protocol';
 import type { Hub } from './hub.js';
 import { GameError, type Room } from './room.js';
+import { narrate } from './tts.js';
+import { cleanCaption, captionChunks } from './captions.js';
 
 export interface SuspectInfo { id: string; name: string; role: string; motive: string; claimedAlibi: Record<number, string> }
 export interface BoardView extends BoardState { clues: Clue[]; round: number; phase: RoomState['phase'] }
@@ -23,6 +25,10 @@ export interface GameApi {
   proveIt(code: string, theory: Theory): Promise<{ verdict: TheoryVerdict; explanation: string }>;
   accuse(code: string, theory: Theory): Promise<AccuseResult>;
   state(code: string): RoomState;
+  /** One deduction step at most: points at a board clue and what it rules out. Never names the culprit. */
+  hint(code: string): { text: string; clueId?: string; hintsLeft: number };
+  /** The TV narrator's voice (ElevenLabs when configured, else Polly), cached. */
+  narrate(text: string): Promise<{ audioUrl?: string; captionChunks?: string[] }>;
 }
 
 export function createGameApi(hub: Hub): GameApi {
@@ -31,6 +37,7 @@ export function createGameApi(hub: Hub): GameApi {
     if (!r) throw new GameError(`No room with code ${code}.`);
     return r;
   };
+  const hintsGiven = new Map<string, Set<string>>();
   return {
     createRoom(opts = {}) {
       const r = hub.createRoom(opts.tone ?? 'classic', { seed: opts.seed });
@@ -76,6 +83,29 @@ export function createGameApi(hub: Hub): GameApi {
       };
     },
     state(code) { return room(code).publicState(); },
+    hint(code) {
+      const r = room(code);
+      const c = r.case;
+      if (!c) throw new GameError('No case yet. Start one first.');
+      // Only elimination steps whose clue is already on the board: a nudge, never the answer.
+      const steps = r.proof().filter((st) => st.eliminates?.length && r.board.revealed.includes(st.clueId) && !r.board.pinned.includes(st.clueId));
+      const used = hintsGiven.get(code) ?? new Set<string>();
+      const next = steps.find((st) => !used.has(st.clueId));
+      const time = c.slots.find((s) => s.id === c.crime.slot)?.label;
+      if (!next) {
+        return steps.length
+          ? { text: 'You have what you need on the board. Pin the clues that clear people, then try Prove it.', hintsLeft: 0 }
+          : { text: `Ask each suspect where they were at ${time}. Their answers and the board will start ruling people out.`, hintsLeft: 0 };
+      }
+      used.add(next.clueId); hintsGiven.set(code, used);
+      const clue = c.clues.find((x) => x.id === next.clueId)!;
+      return { text: `Look at "${clue.title}". ${next.therefore}`, clueId: clue.id, hintsLeft: steps.filter((st) => !used.has(st.clueId)).length };
+    },
+    async narrate(text) {
+      const caption = cleanCaption(text);
+      const sp = await narrate(caption, 'narrator');
+      return { audioUrl: sp.audioUrl, captionChunks: captionChunks(caption) };
+    },
   };
 }
 

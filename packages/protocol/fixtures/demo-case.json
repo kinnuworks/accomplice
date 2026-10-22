@@ -777,8 +777,8 @@
     },
     "doctor": {
       "wasLying": false,
-      "line": "I beg your pardon? Check your clues before you insult me.",
-      "retort": "I beg your pardon? Check your clues before you insult me."
+      "line": "How dare you. Every word I said was true, and I resent the implication.",
+      "retort": "How dare you. Every word I said was true, and I resent the implication."
     },
     "colonel": {
       "wasLying": true,
@@ -794,8 +794,8 @@
     },
     "magician": {
       "wasLying": false,
-      "line": "How dare you. Every word I said was true, and I resent the implication.",
-      "retort": "How dare you. Every word I said was true, and I resent the implication."
+      "line": "I beg your pardon? Check your clues before you insult me.",
+      "retort": "I beg your pardon? Check your clues before you insult me."
     }
   }
 }

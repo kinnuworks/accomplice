@@ -1,0 +1,26 @@
+{
+  "name": "accomplice-infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AWS CDK app for the hosted Accomplice deployment (ap-south-1).",
+  "scripts": {
+    "build:web": "pnpm --dir .. --filter @accomplice/tv-web --filter @accomplice/phone --filter @accomplice/echo-sim exec vite build",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "bootstrap": "cdk bootstrap",
+    "deploy": "npm run build:web && cdk deploy --require-approval never --outputs-file cdk-outputs.json",
+    "destroy": "cdk destroy --force",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.274.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "aws-cdk": "2.1146.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.0"
+  }
+}
