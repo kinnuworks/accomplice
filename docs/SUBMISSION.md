@@ -40,7 +40,7 @@ Other ways in:
 
 **Alexa+.** An MCP server on spec 2025-11-25 over Streamable HTTP: case generation runs as a task, the accusation uses elicitation to confirm, and the evidence board is an MCP Apps `ui://` card. Game state is keyed by household so the conversation can pick up later. A house host built with Strands Agents connects to the same MCP tools and follows the add-on's SKILL.md, so it can answer questions like "remind me what the cook said" and question a suspect for you. It never accuses without a spoken yes. Simple commands skip the agent and answer instantly; agent answers start speaking in 0.9 to 2.9 s.
 
-**AWS.** One CDK stack: ECS Fargate (ARM) behind a load balancer, DynamoDB for room snapshots (a game survives a server restart) and detective records, S3 for the voice cache, Secrets Manager, a CloudWatch game dashboard and a $150 budget cap. [Live URL.]
+**AWS.** One CDK stack: ECS Fargate (ARM) behind a load balancer, DynamoDB for room snapshots (a game survives a server restart) and detective records, S3 for the voice cache, Secrets Manager, a CloudWatch game dashboard and a $150 budget cap. Live at http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/tv/ (phones join over HTTPS through the QR code).
 
 ## Challenges we ran into
 
@@ -74,14 +74,14 @@ amazon-polly, amazon-transcribe, amazon-translate, amazon-dynamodb, amazon-ecs, 
 
 **AWS Builder:** see the AWS section above and [docs/AWS.md](AWS.md). Services in the live path: Polly, Transcribe, Translate, DynamoDB, ECS Fargate, ALB, S3, Secrets Manager, CloudWatch, Budgets, all deployed with CDK.
 
-**Open Source:** `fairplay`, the case generator and verifier, is published separately under MIT at github.com/kinnuworks/fairplay with [N] tests. It works for any deduction game, not only ours.
+**Open Source:** `fairplay`, the case generator and verifier, is published separately under MIT at github.com/kinnuworks/fairplay with 28 tests. It works for any deduction game, not only ours.
 
 ## Testing instructions
 
-1. Open [live URL]/tv/ on a laptop or TV browser, or install the Vega package from the repository's releases on a Fire TV or the Vega Virtual Device.
+1. Open http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/tv/ on a laptop or TV browser, or install the Vega package from the repository's releases on a Fire TV or the Vega Virtual Device.
 2. Scan the QR code with two or more phones (iPhone Safari or Android Chrome). Allow the microphone.
 3. Press Start on the TV with the remote or Enter key. Hold the talk button on a phone and ask a suspect a question.
-4. Alexa+: open [live URL]/echo/ for the Echo Show simulator, or point any MCP client at [live URL]/mcp.
+4. Alexa+: open http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/echo/ for the Echo Show simulator, or point any MCP client at the HTTPS address shown in the TV lobby, plus /mcp.
 
 Repositories are shared with the judges listed in the rules and testing@devpost.com.
 
