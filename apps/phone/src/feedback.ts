@@ -4,11 +4,13 @@ export interface Prefs {
   sounds: boolean;
   vibration: boolean;
   speakReplies: boolean; // read suspect replies aloud on this phone too
-  largeText: boolean;
+  textSize: 100 | 125 | 150;
+  highContrast: boolean;
+  reduceMotion: boolean;
 }
 
 const PREFS_KEY = 'accomplice:prefs';
-const defaults: Prefs = { sounds: true, vibration: true, speakReplies: false, largeText: false };
+const defaults: Prefs = { sounds: true, vibration: true, speakReplies: false, textSize: 100, highContrast: false, reduceMotion: false };
 
 export function loadPrefs(): Prefs {
   try {
@@ -92,7 +94,84 @@ function buzz(pattern: number | number[]) {
   }
 }
 
+/** A short burst of filtered noise: the wax seal cracking. */
+function crackle() {
+  if (!prefs.sounds) return;
+  const c = audioCtx();
+  if (!c || c.state !== 'running') return;
+  const len = Math.floor(c.sampleRate * 0.18);
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    // a few sharp snaps that decay fast
+    const env = Math.exp(-i / (len * 0.12)) + (i > len * 0.35 && i < len * 0.4 ? 0.6 : 0);
+    d[i] = (Math.random() * 2 - 1) * env;
+  }
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 2200;
+  bp.Q.value = 0.9;
+  const g = c.createGain();
+  g.gain.value = 0.35;
+  src.connect(bp).connect(g).connect(c.destination);
+  src.start();
+  tone([110, 82], 0.12, 0.08, 'sine'); // the thump underneath
+}
+
+let sealBuf: AudioBuffer | null = null;
+let sealLoading = false;
+/** Loads the real wax-seal sound once, so the first reveal can use it. */
+export function preloadSeal() {
+  const c = audioCtx();
+  if (!c || sealBuf || sealLoading) return;
+  sealLoading = true;
+  fetch(`${import.meta.env.BASE_URL}sfx/seal.mp3`)
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
+    .then((b) => c.decodeAudioData(b))
+    .then((buf) => (sealBuf = buf))
+    .catch(() => {})
+    .finally(() => (sealLoading = false));
+}
+
+function playSeal() {
+  const c = audioCtx();
+  if (!prefs.sounds || !c || c.state !== 'running') return false;
+  if (!sealBuf) return false;
+  const src = c.createBufferSource();
+  src.buffer = sealBuf;
+  const g = c.createGain();
+  g.gain.value = 0.8;
+  src.connect(g).connect(c.destination);
+  src.start();
+  return true;
+}
+
 export const cue = {
+  crack() {
+    if (!playSeal()) crackle();
+    buzz([12, 30, 45]);
+  },
+  thud() {
+    tone([70, 55], 0.18, 0.12, 'sine');
+    buzz(120);
+  },
+  heartbeat() {
+    buzz([80, 120, 80, 600, 80, 120, 80, 600]);
+  },
+  nudge() {
+    tone([660], 0.07, 0.04, 'triangle');
+    buzz(25);
+  },
+  turn() {
+    tone([587, 880], 0.1, 0.05, 'triangle');
+    buzz([30, 60, 30]);
+  },
+  phase() {
+    tone([392, 587], 0.14, 0.05, 'triangle');
+    buzz([40, 50, 40]);
+  },
   talkStart() {
     tone([523, 784], 0.08);
     buzz(35);

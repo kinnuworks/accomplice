@@ -56,6 +56,10 @@ export interface Case {
   intro: string;           // narrator paragraph
   scene?: string;          // scene art asset key, e.g. "scenes/ashby-hall.webp"
   briefing?: string[];     // 4 to 6 short narrator lines, one per briefing slide
+  confession?: string[];   // 3 lines in the culprit's voice for the reveal: motive, method, parting shot
+  headline?: { title: string; sub: string }; // newspaper front page; sub may contain {DETECTIVE}
+  paperName?: string;      // e.g. "The Cotswold Gazette"
+  clockChimes?: number[];  // hour chimes to play at the start of rounds 1, 2, 3
   victim: { name: string; description: string };
   crime: { room: string; slot: number; item: string; what: string }; // what: "was struck down" | "the cake vanished"
   rooms: Room[];
@@ -97,12 +101,23 @@ export interface ProofStep { clueId: string; says: string; therefore: string; el
 
 export interface AccompliceLie { text: string; fact: Fact }
 
+/** Engine answer to an objection: a slip when the suspect was lying in that answer, else a retort. */
+export interface ObjectionResult { wasLying: boolean; line: string; fact?: Fact; factText?: string }
+
+export interface Newspaper {
+  paperName: string; title: string; sub: string; date: string; culpritPortrait?: string;
+  players: { id: string; name: string; score: number; role: Role | null; correct: boolean }[];
+  imageUrl?: string;       // 1080x1350 PNG front page, shareable
+}
+
 // ---------- Public views (safe to send) ----------
 
 export interface PublicCase {
   id: string; tone: Tone; title: string; place: string; dateLine: string; intro: string;
   scene?: string;
   briefing?: string[];
+  paperName?: string;
+  clockChimes?: number[];
   victim: { name: string; description: string };
   crime: { room: string; slot: number; what: string };
   rooms: Room[]; slots: Slot[];
@@ -164,6 +179,7 @@ export interface RoomState {
   reveal?: { culprit: string; accomplice: string | null; item: string; steps: ProofStep[]; scores: Record<string, number>; accompliceCaught?: boolean; accompliceLine?: string;
     sabotage?: { by: string; byName: string; clueId: string; clueTitle: string; round: number; at: number }[];
     hunches?: { byPlayer: Record<string, { right: number; total: number }>; right: number; total: number };
+    newspaper?: Newspaper;
   };
   house?: { id: 'house'; name: string; role: string; portrait?: string }; // non-suspect who answers the practice question
   emergency?: { stage: 'vote' | 'ask' | 'done'; closesAt: number; votes: Record<string, number>; voters: string[]; suspectId?: string; askedBy?: string };
@@ -183,6 +199,7 @@ export interface YouState {
   lang?: Lang;
   audience?: boolean;      // joined beyond the player cap or late: hunch votes only
   tutorialQuestionUsed?: boolean;
+  objectionUsed?: boolean;
   sabotage?: { available: boolean; options: string[] }; // accomplice only: board clues that are safe to smudge
 }
 
@@ -209,7 +226,8 @@ export type ClientToServer =
   | { t: 'phone:voteProposal'; proposalId: string; agree: boolean }
   | { t: 'phone:emergencyVote'; suspectId: string }   // blackout: choose who must answer one extra question
   | { t: 'phone:sabotage'; clueId: string }           // accomplice, once per game
-  | { t: 'phone:hunch'; utteranceId: string; lying: boolean }                         // push the soft timer back (never a hard limit)
+  | { t: 'phone:hunch'; utteranceId: string; lying: boolean }
+  | { t: 'phone:objection'; utteranceId: string }   // once per game, during or up to 6 s after that answer                         // push the soft timer back (never a hard limit)
   | { t: 'phone:setLang'; lang: Lang }
   | { t: 'tv:spoken'; id: string }                 // TV finished playing an utterance (frees the queue early)
   | { t: 'ping' };
@@ -224,12 +242,13 @@ export type ServerToClient =
   | { t: 'verdict'; theory: Theory; verdict: TheoryVerdict; explanation: string; proposalId?: string }
   | { t: 'proposal'; id: string; by: string; byName: string; culprit: string; item?: string; votes: { agree: string[]; notYet: string[] }; needed: number; closesAt: number }
   | { t: 'proposal:votes'; id: string; agree: string[]; notYet: string[]; needed: number }
-  | { t: 'event'; kind: 'blackout' | 'emergency' | 'smudge'; text: string; clueId?: string; suspectId?: string }
+  | { t: 'event'; kind: 'blackout' | 'emergency' | 'smudge' | 'objection' | 'chime' | 'coldOpen' | 'titleCard'; text: string; clueId?: string; suspectId?: string; by?: string; byName?: string; hour?: number }
+  | { t: 'haptic'; pattern: 'heartbeat' }            // accomplice phone only: someone named the culprit
   | { t: 'hunch'; utteranceId: string; lying: number; truth: number }
   | { t: 'error'; message: string }
   | { t: 'pong' };
 
-export type SfxName = 'join' | 'start' | 'cardFlip' | 'pin' | 'string' | 'thinking' | 'bell' | 'gavel' | 'reveal' | 'win' | 'lose' | 'tick' | 'thunder' | 'smudge';
+export type SfxName = 'join' | 'start' | 'cardFlip' | 'pin' | 'string' | 'thinking' | 'bell' | 'gavel' | 'reveal' | 'win' | 'lose' | 'tick' | 'thunder' | 'smudge' | 'rain' | 'sting' | 'chime';
 
 // ---------- Speech input socket: /stt?room=CODE&pid=<playerId> ----------
 // Client sends one JSON {t:'start'}, then binary frames of 16 kHz mono PCM16 (little endian), then {t:'stop'}.

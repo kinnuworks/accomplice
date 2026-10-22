@@ -174,7 +174,8 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose(): vo
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
   }, [open]);
-  const toggle = (k: keyof typeof prefs, label: string, hint: string) => (
+  type BoolKey = 'sounds' | 'vibration' | 'speakReplies' | 'highContrast' | 'reduceMotion';
+  const toggle = (k: BoolKey, label: string, hint: string) => (
     <div className="switch">
       <input
         id={`pref-${k}`}
@@ -196,7 +197,20 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose(): vo
       {toggle('sounds', 'Sound cues', 'Little chimes when you start and stop talking, and when clues arrive.')}
       {toggle('vibration', 'Vibration', 'A buzz when the mic opens and closes. Not every phone can do this.')}
       {toggle('speakReplies', 'Read replies on my phone', 'Suspects also speak from your phone, handy with headphones.')}
-      {toggle('largeText', 'Bigger text', 'Makes everything a size larger, on top of your phone’s own text size.')}
+      <fieldset className="field text-size">
+        <legend>Text size</legend>
+        <div className="seg">
+          {([100, 125, 150] as const).map((n) => (
+            <label key={n} className="seg__opt">
+              <input type="radio" name="text-size" value={n} checked={prefs.textSize === n} onChange={() => setPrefs({ ...prefs, textSize: n })} />
+              <span>{n}%</span>
+            </label>
+          ))}
+        </div>
+        <p className="hint">On top of your phone&rsquo;s own text size.</p>
+      </fieldset>
+      {toggle('highContrast', 'High contrast', 'Brighter text and stronger outlines.')}
+      {toggle('reduceMotion', 'Reduce motion', 'No shimmer, wiggles or sliding cards.')}
       <button type="button" className="btn btn--primary btn--block" onClick={onClose}>
         Done
       </button>
@@ -248,5 +262,43 @@ export function Icon({ name }: { name: 'gear' | 'mic' | 'stop' | 'speaker' | 'ke
     <svg className="icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       {p[name]}
     </svg>
+  );
+}
+
+/** Asked before anything secret is read out loud. */
+export function EarbudDialog() {
+  const { earbudOpen, answerEarbud } = useGame();
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (earbudOpen && !d.open) d.showModal();
+    if (!earbudOpen && d.open) d.close();
+  }, [earbudOpen]);
+  return (
+    <dialog
+      ref={ref}
+      className="sheet sheet--earbud"
+      aria-labelledby="earbud-h"
+      aria-describedby="earbud-d"
+      onCancel={(e) => {
+        e.preventDefault();
+        answerEarbud(false);
+      }}
+    >
+      <p className="sheet__emoji" aria-hidden="true">
+        🎧
+      </p>
+      <h2 id="earbud-h">Put in one earbud first</h2>
+      <p id="earbud-d">Or this will be read out loud, and everyone at the table will hear your secrets.</p>
+      <div className="stack">
+        <button type="button" className="btn btn--primary btn--block btn--big" onClick={() => answerEarbud(true)}>
+          Continue
+        </button>
+        <button type="button" className="btn btn--ghost btn--block" onClick={() => answerEarbud(false)}>
+          Cancel
+        </button>
+      </div>
+    </dialog>
   );
 }

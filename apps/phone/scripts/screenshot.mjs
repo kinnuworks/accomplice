@@ -30,15 +30,27 @@ const shots = [
   ['08-review-transcript', 'at=review'],
   ['09-typed-fallback', 'at=typed'],
   ['10-my-clues', 'at=clues'],
-  ['11-notes', 'at=notes'],
-  ['12-accuse', 'at=accuse'],
-  ['13-accuse-confirm', 'at=accuse-confirm'],
-  ['14-accuse-locked', 'at=accuse-locked'],
-  ['15-reveal', 'at=reveal'],
-  ['16-results', 'at=results'],
-  ['17-results-accomplice', 'at=results&as=accomplice'],
-  ['18-investigate-text-200', 'at=review', { zoom: true }],
-  ['19-accuse-text-200', 'at=accuse', { zoom: true }],
+  ['11-earbud-check', 'at=earbud'],
+  ['12-board', 'at=board'],
+  ['13-test-a-theory', 'at=theory'],
+  ['14-vote-on-theory', 'at=vote', { wait: 900 }],
+  ['15-notes', 'at=notes'],
+  ['25-tutorial', 'at=tutorial'],
+  ['26-blackout-vote', 'at=emergency'],
+  ['27-free-question', 'at=free-question'],
+  ['28-smudge-a-clue', 'at=sabotage&as=accomplice'],
+  ['29-hunch', 'at=hunch'],
+  ['30-audience', 'at=audience'],
+  ['31-heartbeat', 'at=heartbeat&as=accomplice', { wait: 900 }],
+  ['16-accuse', 'at=accuse'],
+  ['17-accuse-confirm', 'at=accuse-confirm'],
+  ['18-accuse-locked', 'at=accuse-locked'],
+  ['19-reveal', 'at=reveal'],
+  ['20-results', 'at=results'],
+  ['21-results-accomplice', 'at=results&as=accomplice'],
+  ['22-investigate-text-200', 'at=review', { zoom: true }],
+  ['23-accuse-text-200', 'at=accuse', { zoom: true }],
+  ['24-board-text-200', 'at=board', { zoom: true }],
 ];
 
 async function launch() {
@@ -79,15 +91,17 @@ for (const [name, query, opts = {}] of shots) {
     await page.addStyleTag({ content: 'html{font-size:200% !important}' });
   }
   await page.waitForSelector('h1');
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(opts.wait ?? 700);
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (overflow > 1) overflowProblems++;
 
   // Screens with the talk dock: show what the thumb sees, scrolled to the dock.
   // Everything else: the whole page.
-  const hasDock = (await page.locator('.dock').count()) > 0 && !opts.zoom;
-  if (hasDock) await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const dialogOpen = (await page.locator('dialog[open]').count()) > 0;
+  const hasDock = ((await page.locator('.dock:visible').count()) > 0 && !opts.zoom) || dialogOpen;
+  if (dialogOpen) await page.evaluate(() => window.scrollTo(0, 0));
+  else if (hasDock) await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.screenshot({ path: path.join(outDir, `${name}.png`), fullPage: !hasDock });
 
   const result = await new AxeBuilder({ page })
@@ -112,28 +126,37 @@ const flow = await context.newPage();
 const flowErrors = [];
 flow.on('pageerror', (e) => flowErrors.push(e.message));
 try {
-  await flow.goto(`${base}?demo=1&room=MOTH`);
+  await flow.goto(`${base}?demo=1&footer=1&room=MOTH`);
   await flow.getByLabel('Your name').fill('Ada');
-  await flow.getByRole('radio', { name: 'Owl' }).check();
+  await flow.getByRole('radio', { name: 'Calling card: Owl' }).check();
   await flow.getByRole('button', { name: 'Step inside' }).click();
   await flow.getByRole('heading', { level: 1, name: 'The guests are arriving' }).waitFor();
   await flow.getByRole('button', { name: 'Start the mystery' }).click();
   await flow.getByRole('heading', { level: 1, name: 'Your secret role' }).waitFor();
-  await flow.getByRole('button', { name: /peek at my role/i }).click(); // keyboard style: toggles
+  await flow.getByRole('button', { name: /peek at my role/i }).press('Enter'); // keyboard and screen reader path
   await flow.getByRole('heading', { level: 2, name: /Detective|Accomplice/ }).waitFor();
+  await flow.getByRole('button', { name: 'Hide', exact: true }).click();
+  await flow.getByRole('button', { name: /skip ahead/i }).click();
+  await flow.getByRole('heading', { level: 1, name: 'Practice question' }).waitFor();
   await flow.getByRole('button', { name: /skip ahead/i }).click();
   await flow.getByRole('heading', { level: 1, name: 'Question the suspects' }).waitFor();
-  await flow.getByRole('radio', { name: /Ivy Marchetti/ }).check();
-  const talk = flow.getByRole('button', { name: /Hold to ask/ });
+  await flow.locator('input[name="suspect"]').first().check();
+  const talk = flow.getByRole('button', { name: /^Hold to ask/ });
   const box = await talk.boundingBox();
   await flow.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await flow.mouse.down();
   await flow.waitForTimeout(1600);
   await flow.mouse.up();
-  await flow.getByLabel(/Your question for Ivy Marchetti/).waitFor();
-  await flow.getByRole('button', { name: /Ask Marchetti/ }).click();
-  await flow.getByText(/Darling|My dance card/).first().waitFor({ timeout: 5000 });
-  console.log('\nFlow: join -> lobby -> role -> investigate -> hold to talk -> answer: OK');
+  await flow.getByLabel(/^Your question for/).waitFor();
+  await flow.getByRole('button', { name: /^Ask / }).click();
+  await flow.locator('.reply__text').filter({ hasText: /nowhere near|hardly makes me|nothing to hide/ }).waitFor({ timeout: 6000 });
+  // Test a theory from the Board tab
+  await flow.getByRole('tab', { name: /Board/ }).click();
+  await flow.getByRole('button', { name: 'Test a theory' }).click();
+  await flow.locator('input[name="theory-culprit"]').first().check();
+  await flow.getByRole('button', { name: 'Put it to the table' }).click();
+  await flow.getByRole('heading', { name: /^Verdict:/ }).waitFor({ timeout: 6000 });
+  console.log('\nFlow: join -> lobby -> role -> investigate -> hold to talk -> answer -> test a theory -> verdict: OK');
 } catch (e) {
   console.log('\nFlow FAILED:', e.message);
   totalViolations++;

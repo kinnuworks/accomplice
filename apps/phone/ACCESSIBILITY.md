@@ -36,13 +36,26 @@ The phone is where each player plays, so it has to work for everyone at the tabl
 - The phone never acts on a timer. If the server sends a soft deadline, the phone shows it once in a while ("About 2 minutes left") and says the host can always give more time. Nothing is sent for you when time runs out.
 - Toasts stay for 7 seconds, can be dismissed, and are also announced, so nothing important exists only in a toast.
 
+**Playing without seeing the TV**
+- The Board tab puts the TV board into plain text: the crime (room and time), every clue on the board (short line, with the full card one tap away), what each suspect claims and what the clues say about them, hour by hour, and the theory being tested with its verdict.
+- "Test a theory", the vote on someone else's theory, the blackout vote, hunches ("Lying or truthful?") and the Objection button are all ordinary buttons and radio groups. Each one is announced when it appears.
+- Announced as they happen: who is speaking, "It's your turn to ask", new clues, the hour chime, phase changes, verdicts, blackouts and smudges. Each comes with a short vibration where the phone supports it.
+
+**Secrets stay secret**
+- Before anything secret is read aloud (your role, safe lies, private clues), the phone asks you to put in one earbud first, with Continue and Cancel.
+- The accomplice's heartbeat buzz and red edge are never announced, so a screen reader cannot give the accomplice away.
+- Smudging a clue is only ever shown to the accomplice, and it asks you to confirm first.
+
+**Settings**
+- Text size 100, 125 or 150 percent, high contrast and reduce motion, on top of the phone's own settings.
+
 ## Automated checks
 
 ```
 pnpm --filter @accomplice/phone screenshot
 ```
 
-This captures 19 screens in demo mode at iPhone 15 size and runs axe-core on each one (WCAG 2.0, 2.1 and 2.2 A and AA, plus best practices). It also checks for sideways scrolling at 200% text and plays through join, lobby, role, investigate and a held-to-talk question. Current result: 0 violations on every screen, and no sideways scrolling.
+This captures 31 screens in demo mode at iPhone 15 size and runs axe-core on each one (WCAG 2.0, 2.1 and 2.2 A and AA, plus best practices). It also checks for sideways scrolling at 200% text and plays through join, lobby, role, practice, investigate, a held-to-talk question and testing a theory. Current result: 0 violations on every screen, and no sideways scrolling.
 
 ## Testing by hand
 
@@ -74,4 +87,4 @@ Open `http://<your-computer>:5174/p/?demo=1` on the phone. Demo mode runs a whol
 ## Known gaps
 - iPhone Safari has no vibration API, so iPhone players get the sound cue only.
 - Screen reader speech can be picked up by the mic if the phone's speaker is loud. Headphones help. Typing avoids it completely.
-- The protocol has no "more time" message yet, so the phone can only show that the host can extend a round.
+- Hunch votes close on the server's clock (about 20 seconds). They are optional bonus points, so nothing is lost if you miss one.

@@ -21,12 +21,15 @@ export function TalkDock({
   suspect,
   questionsLeft,
   demoStart,
+  doneText,
 }: {
-  suspect: { id: string; name: string } | null;
+  suspect: { id: string; name: string; short: string } | null;
   questionsLeft: number;
   demoStart?: 'listening' | 'review' | 'typed';
+  /** What to say when there are no questions left (defaults to the round message). */
+  doneText?: string;
 }) {
-  const { send, demo, room, you, lastReply } = useGame();
+  const { send, demo, room, you, lastReply, markAsked } = useGame();
   const [state, setStateRaw] = useState<DockState>('idle');
   const stateRef = useRef<DockState>('idle');
   const setState = (s: DockState) => {
@@ -70,7 +73,7 @@ export function TalkDock({
   const disabledReason = !suspect
     ? 'Pick a suspect above first.'
     : questionsLeft <= 0
-      ? 'No questions left this round. Compare notes while the others ask.'
+      ? doneText ?? 'No questions left this round. Compare notes while the others ask.'
       : null;
 
   const begin = () => {
@@ -146,6 +149,7 @@ export function TalkDock({
     const q = text.trim();
     if (!q || !suspect) return;
     send({ t: 'phone:ask', suspectId: suspect.id, text: q, via });
+    markAsked(suspect.id);
     cue.locked();
     setSentTo({ ...suspect, at: Date.now() });
     setState('sent');
@@ -161,7 +165,7 @@ export function TalkDock({
     if (state === 'sent' && answered && room?.speaking !== sentTo?.id) setState('idle');
   }, [state, answered, room?.speaking, sentTo?.id]);
 
-  const firstName = suspect?.name.split(' ').slice(-1)[0] ?? '';
+  const firstName = suspect?.short ?? '';
   const listening = state === 'listening' || state === 'starting';
 
   if (state === 'sent' && sentTo) {
@@ -269,7 +273,7 @@ export function TalkDock({
           <span className="talk__icon">
             <Icon name={listening ? 'stop' : 'mic'} />
           </span>
-          <span className="talk__label">{listening ? 'Let go or tap to finish' : suspect ? `Hold to ask ${firstName}` : 'Hold to ask'}</span>
+          <span className="talk__label">{listening ? 'Let go or tap to finish' : !suspect ? 'Pick a suspect first' : questionsLeft <= 0 ? 'No questions left' : `Hold to ask ${firstName}`}</span>
         </button>
         <button
           type="button"

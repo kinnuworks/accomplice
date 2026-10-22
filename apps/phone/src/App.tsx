@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type React from 'react';
-import { ConnectionBanner, Icon, ScreenHeading, SettingsDialog, Toast, avatarLabel } from './components';
+import { ConnectionBanner, EarbudDialog, Icon, ScreenHeading, SettingsDialog, Toast, avatarLabel } from './components';
 import { LiveRegions } from './announce';
 import { GameProvider, useGame } from './game';
 import { demoParams } from './demo';
@@ -10,6 +10,7 @@ import { Briefing } from './screens/Role';
 import { Investigate } from './screens/Investigate';
 import { Accuse } from './screens/Accuse';
 import { Reveal } from './screens/Reveal';
+import { Audience, Tutorial } from './screens/Extras';
 
 export function App() {
   return (
@@ -26,10 +27,24 @@ function Shell() {
   const demoAt = g.demo ? demoParams().at : undefined;
 
   useEffect(() => {
-    document.documentElement.classList.toggle('large-text', g.prefs.largeText);
-  }, [g.prefs.largeText]);
+    const html = document.documentElement;
+    html.dataset.textSize = String(g.prefs.textSize);
+    html.classList.toggle('hc', g.prefs.highContrast);
+    html.classList.toggle('rm', g.prefs.reduceMotion);
+  }, [g.prefs.textSize, g.prefs.highContrast, g.prefs.reduceMotion]);
 
   const phase = g.room?.phase;
+  const [beating, setBeating] = useState(false);
+  useEffect(() => {
+    if (!g.heartbeat) return;
+    setBeating(true);
+    const t = window.setTimeout(() => setBeating(false), 2200);
+    return () => window.clearTimeout(t);
+  }, [g.heartbeat]);
+  // The night gets darker each round, like the TV.
+  useEffect(() => {
+    document.documentElement.dataset.round = String(g.room?.round ?? 0);
+  }, [g.room?.round]);
   useEffect(() => {
     if (phase) document.title = `Accomplice: ${PHASE_TITLE[phase]}`;
   }, [phase]);
@@ -42,7 +57,14 @@ function Shell() {
     screen = <Joining />;
   } else {
     key = g.room.phase;
-    switch (g.room.phase) {
+    const watching = g.you.audience && ['briefing', 'tutorial', 'investigate', 'accuse'].includes(g.room.phase);
+    if (watching) {
+      key = 'audience';
+      screen = <Audience />;
+    } else switch (g.room.phase) {
+      case 'tutorial':
+        screen = <Tutorial demoAt={demoAt} />;
+        break;
       case 'lobby':
         screen = <Lobby />;
         break;
@@ -92,9 +114,11 @@ function Shell() {
       <main id="main" key={key}>
         {screen}
       </main>
-      {g.demo && <DemoBar />}
+      {g.demo && demoParams().footer && <DemoBar />}
       <Toast />
       <SettingsDialog open={settings} onClose={() => setSettings(false)} />
+      <EarbudDialog />
+      {beating && <div className="heartbeat-edge" aria-hidden="true" />}
     </div>
   );
 }
@@ -102,6 +126,7 @@ function Shell() {
 const PHASE_TITLE: Record<string, string> = {
   lobby: 'Lobby',
   briefing: 'Your secret role',
+  tutorial: 'Practice question',
   investigate: 'Investigate',
   accuse: 'Accuse',
   reveal: 'The reveal',

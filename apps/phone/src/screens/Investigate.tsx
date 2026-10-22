@@ -4,32 +4,42 @@ import { ClueCard, Icon, Portrait, ScreenHeading } from '../components';
 import { useGame } from '../game';
 import { RolePeek } from './Role';
 import { TalkDock } from './TalkDock';
+import { BoardPanel, TheorySheet, TheoryStatus, VoteSheet } from './Board';
+import { ChimeBanner, EmergencyPanel, HunchCard, ObjectionButton } from './Extras';
+import { shortName, type SuspectX } from '../types';
 
-type Tab = 'ask' | 'clues' | 'notes';
+type Tab = 'ask' | 'board' | 'clues' | 'notes';
 
 export function Investigate({ demoAt }: { demoAt?: string }) {
-  const { room, me, you, newClueIds } = useGame();
-  const initialTab: Tab = demoAt === 'clues' ? 'clues' : demoAt === 'notes' ? 'notes' : 'ask';
+  const { room, me, you, newClueIds, readClues } = useGame();
+  const initialTab: Tab =
+    demoAt === 'clues' || demoAt === 'earbud' ? 'clues' : demoAt === 'notes' ? 'notes' : demoAt === 'board' || demoAt === 'theory' || demoAt === 'sabotage' ? 'board' : 'ask';
   const [tab, setTab] = useState<Tab>(initialTab);
   const [roleOpen, setRoleOpen] = useState(false);
+  const [theoryOpen, setTheoryOpen] = useState(demoAt === 'theory');
+  useEffect(() => {
+    if (demoAt === 'earbud') void readClues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   if (!room?.case || !you) return null;
   const left = me?.questionsLeft ?? 0;
   const clueCount = you.privateClues.length;
   const unseen = newClueIds.length;
+  const boardCount = room.board.revealed.length;
 
   return (
     <div className="screen screen--investigate">
       <p className="eyebrow">Round {room.round} of 3</p>
       <ScreenHeading>Question the suspects</ScreenHeading>
       <div className="inv-meta">
-        <p className={`qleft${left === 0 ? ' qleft--none' : ''}`}>
-          <span className="qleft__pips" aria-hidden="true">
-            {[0, 1].map((i) => (
-              <span key={i} className={`pip${i < left ? ' pip--on' : ''}`} />
-            ))}
+        <p className={`qbadge${left === 0 ? ' qbadge--none' : left === 1 ? ' qbadge--last' : ''}`}>
+          <span className="qbadge__num" aria-hidden="true">
+            {left}
           </span>
-          {left === 0 ? 'No questions left' : `${left} ${left === 1 ? 'question' : 'questions'} left`}
-          <span className="sr-only"> this round</span>
+          <span className="qbadge__text">
+            {left === 0 ? 'No questions left' : left === 1 ? 'Last question!' : `${left} questions left`}
+            <span className="sr-only">{left === 1 ? ' One question left' : ''} this round</span>
+          </span>
         </p>
         <button type="button" className="btn btn--chip" onClick={() => setRoleOpen(true)}>
           <Icon name="eye" />
@@ -37,19 +47,28 @@ export function Investigate({ demoAt }: { demoAt?: string }) {
         </button>
       </div>
       <SoftTimer deadline={room.deadlineAt} />
+      <ChimeBanner />
+      <EmergencyPanel />
+      <ObjectionButton />
+      <TheoryStatus />
+      <VoteSheet />
 
       <Tabs
         tab={tab}
         setTab={setTab}
         items={[
           { id: 'ask', label: 'Ask' },
-          { id: 'clues', label: 'My clues', count: clueCount, badge: unseen > 0 ? `${unseen} new` : undefined },
+          { id: 'board', label: 'Board', count: boardCount },
+          { id: 'clues', label: 'Clues', count: clueCount, badge: unseen > 0 ? `${unseen} new` : undefined },
           { id: 'notes', label: 'Notes' },
         ]}
       />
 
       <div role="tabpanel" id="panel-ask" aria-labelledby="tab-ask" hidden={tab !== 'ask'} className="tabpanel">
         <AskPanel demoAt={demoAt} />
+      </div>
+      <div role="tabpanel" id="panel-board" aria-labelledby="tab-board" hidden={tab !== 'board'} className="tabpanel">
+        {tab === 'board' && <BoardPanel onTestTheory={() => setTheoryOpen(true)} />}
       </div>
       <div role="tabpanel" id="panel-clues" aria-labelledby="tab-clues" hidden={tab !== 'clues'} className="tabpanel">
         {tab === 'clues' && <CluesPanel />}
@@ -59,6 +78,7 @@ export function Investigate({ demoAt }: { demoAt?: string }) {
       </div>
 
       <RoleDialog open={roleOpen} onClose={() => setRoleOpen(false)} />
+      <TheorySheet open={theoryOpen} onClose={() => setTheoryOpen(false)} />
     </div>
   );
 }
@@ -112,10 +132,17 @@ function Tabs({
 }
 
 function AskPanel({ demoAt }: { demoAt?: string }) {
-  const { room, me, you, lastReply, narration } = useGame();
-  const suspects = room?.case?.suspects ?? [];
-  const [picked, setPicked] = useState<string | null>(demoAt === 'investigate' ? null : demoAt ? 'finch' : null);
-  const suspect = suspects.find((s) => s.id === picked) ?? null;
+  const { room, me, you, lastReply, narration, lastAsked } = useGame();
+  const suspects = (room?.case?.suspects ?? []) as SuspectX[];
+  // Start on whoever you asked last: follow-up questions are the common case.
+  const [picked, setPicked] = useState<string | null>(() => {
+    if (demoAt && demoAt !== 'investigate') return suspects[0]?.id ?? null;
+    return lastAsked && suspects.some((s) => s.id === lastAsked) ? lastAsked : null;
+  });
+  // Blackout free question: the suspect is fixed and it doesn't use up a question.
+  const em = room?.emergency;
+  const free = em?.stage === 'ask' && em.askedBy === you?.playerId ? em.suspectId : undefined;
+  const suspect = suspects.find((s) => s.id === (free ?? picked)) ?? null;
   const reply = lastReply ?? [...(room?.transcript ?? [])].reverse().find((u) => suspects.some((s) => s.id === u.speaker));
   const replySuspect = reply ? suspects.find((s) => s.id === reply.speaker) : null;
   const demoStart = demoAt === 'listening' ? 'listening' : demoAt === 'review' ? 'review' : demoAt === 'typed' ? 'typed' : undefined;
@@ -169,7 +196,9 @@ function AskPanel({ demoAt }: { demoAt?: string }) {
         </section>
       )}
 
-      <TalkDock suspect={suspect} questionsLeft={me?.questionsLeft ?? 0} demoStart={demoStart} />
+      <HunchCard />
+
+      <TalkDock suspect={suspect ? { id: suspect.id, name: suspect.name, short: shortName(suspect) } : null} questionsLeft={free ? 1 : me?.questionsLeft ?? 0} demoStart={demoStart} />
     </>
   );
 }
@@ -263,6 +292,7 @@ function RoleDialog({ open, onClose }: { open: boolean; onClose(): void }) {
 }
 
 function SoftTimer({ deadline }: { deadline?: number }) {
+  const { send } = useGame();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!deadline) return;
@@ -272,8 +302,13 @@ function SoftTimer({ deadline }: { deadline?: number }) {
   if (!deadline) return null;
   const mins = Math.max(0, Math.round((deadline - now) / 60000));
   return (
-    <p className="hint">
-      {mins > 0 ? `About ${mins} ${mins === 1 ? 'minute' : 'minutes'} left this round.` : 'Time is nearly up.'} No rush: the host can always give more time, and nothing is sent for you.
-    </p>
+    <div className="timer">
+      <p className="hint">
+        {mins > 0 ? `About ${mins} ${mins === 1 ? 'minute' : 'minutes'} left this round.` : 'Time is nearly up.'} Nothing is sent for you when it runs out.
+      </p>
+      <button type="button" className="btn btn--ghost btn--small" onClick={() => send({ t: 'phone:moreTime' })}>
+        More time, please
+      </button>
+    </div>
   );
 }

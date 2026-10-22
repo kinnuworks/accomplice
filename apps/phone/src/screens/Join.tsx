@@ -81,6 +81,7 @@ export function Join() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete="nickname"
+            placeholder="e.g. Ada"
             maxLength={16}
             enterKeyHint="go"
             aria-invalid={!!errors.name}
@@ -102,7 +103,10 @@ export function Join() {
                 <span className="avatar-opt__face" aria-hidden="true">
                   {a.id}
                 </span>
-                <span className="avatar-opt__label">{a.label}</span>
+                <span className="avatar-opt__label">
+                  <span className="sr-only">Calling card: </span>
+                  {a.label}
+                </span>
               </label>
             ))}
           </div>

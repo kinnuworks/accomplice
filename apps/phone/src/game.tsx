@@ -5,6 +5,8 @@ import { connectSocket, type ConnStatus, type Transport } from './net';
 import { createDemo, demoParams } from './demo';
 import { announce } from './announce';
 import { cue, getPrefs, playUrl, setPrefs as storePrefs, speak, stopSpeaking, type Prefs } from './feedback';
+import { clueShort, shortName, type Proposal, type SuspectX } from './types';
+import type { TheoryVerdict } from '@accomplice/protocol';
 
 export interface Profile {
   name: string;
@@ -39,7 +41,37 @@ export interface Game {
   markCluesSeen(): void;
   prefs: Prefs;
   setPrefs(p: Prefs): void;
+  /** "Test a theory": the open proposal, if any, and the latest verdict. */
+  proposal: Proposal | null;
+  hunchResult: { utteranceId: string; lying: number; truth: number } | null;
+  /** Accomplice only: someone just named the culprit. */
+  heartbeat: number;
+  /** "Ten o'clock. Round 2." */
+  chime: string | null;
+  verdict: { verdict: TheoryVerdict; explanation: string; culprit: string; item?: string; at: number } | null;
+  dismissVerdict(): void;
+  /** The earbud check before anything secret is read out loud. */
+  earbudOpen: boolean;
+  answerEarbud(ok: boolean): void;
+  speakSecret(text: string): Promise<void>;
+  lastAsked: string | null;
+  markAsked(suspectId: string): void;
 }
+
+const PHASE_SAY: Record<string, string> = {
+  lobby: 'Back in the lobby.',
+  briefing: 'The game has begun. Your secret role is ready.',
+  investigate: 'The questions begin.',
+  accuse: 'Time to accuse. Make your choice.',
+  reveal: 'All votes are in. The truth is coming out.',
+  results: 'Case closed. Your score is in.',
+};
+
+const VERDICT_SAY: Record<TheoryVerdict, string> = {
+  follows: 'It follows',
+  possible: 'Possible',
+  contradicted: 'Contradicted',
+};
 
 const Ctx = createContext<Game | null>(null);
 export const useGame = () => {
@@ -66,6 +98,11 @@ const store = {
   },
 };
 
+const HOURS = ['Twelve', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
+function hourWord(h: number) {
+  return HOURS[((h % 12) + 12) % 12 || 12] ?? String(h);
+}
+
 export const isDemo = () => new URLSearchParams(location.search).has('demo');
 
 function initialCode() {
@@ -78,7 +115,7 @@ export function clueSpeech(you: YouState | null) {
   if (!clues.length) return 'You have no private clues yet. They arrive at the start of each round.';
   return (
     `You have ${clues.length} private ${clues.length === 1 ? 'clue' : 'clues'}. ` +
-    clues.map((c, i) => `Clue ${i + 1}, ${c.title}. ${c.text}`).join(' ')
+    clues.map((c, i) => `Clue ${i + 1}, ${clueShort(c)}. ${c.text}`).join(' ')
   );
 }
 
@@ -100,6 +137,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [reading, setReading] = useState(false);
   const [newClueIds, setNewClueIds] = useState<string[]>([]);
   const [prefs, setPrefsState] = useState<Prefs>(getPrefs);
+  const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [hunchResult, setHunchResult] = useState<Game['hunchResult']>(null);
+  const [heartbeat, setHeartbeat] = useState(0);
+  const [chime, setChime] = useState<string | null>(null);
+  const chimedRound = useRef(0);
+  const [verdict, setVerdict] = useState<Game['verdict']>(null);
+  const [earbudOpen, setEarbudOpen] = useState(false);
+  const earbudResolve = useRef<((ok: boolean) => void) | null>(null);
+  const [lastAsked, setLastAsked] = useState<string | null>(() => store.get<string>('accomplice:lastAsked'));
+  const roomRef = useRef<RoomState | null>(null);
+  const askPending = useRef(false);
+  const spokenIds = useRef(new Set<string>());
 
   const transport = useRef<Transport | null>(null);
   const profileRef = useRef(profile);
@@ -117,9 +166,66 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const onMessage = useCallback(
     (m: ServerToClient) => {
       switch (m.t) {
-        case 'room:state':
-          setRoom(m.state);
+        case 'room:state': {
+          const prev = roomRef.current;
+          const next = m.state;
+          roomRef.current = next;
+          const myId = youRef.current?.playerId;
+          const mine = next.players.find((p) => p.id === myId);
+          const left = mine?.questionsLeft ?? 0;
+          const qs = `${left} ${left === 1 ? 'question' : 'questions'} left`;
+          const say: string[] = [];
+          if (prev) {
+            const nameOf = (id: string) => (next.case?.suspects as SuspectX[] | undefined)?.find((s) => s.id === id)?.name ?? 'A suspect';
+            if (next.phase !== prev.phase && next.phase !== 'investigate') {
+              cue.phase();
+              say.push(PHASE_SAY[next.phase] ?? '');
+            }
+            if (next.phase === 'investigate' && (prev.phase !== 'investigate' || prev.round !== next.round)) {
+              cue.turn();
+              const hour = next.case?.clockChimes?.[next.round - 1];
+              const line = hour ? `${hourWord(hour)} o'clock. Round ${next.round}.` : `Round ${next.round} of 3.`;
+              if (hour) {
+                setChime(line);
+                chimedRound.current = next.round;
+              }
+              say.push(`${line} It's your turn to ask. ${qs}.`);
+            }
+            if (next.speaking && next.speaking !== prev.speaking) {
+              cue.nudge();
+              say.push(`${nameOf(next.speaking)} is speaking.`);
+            }
+            if (!next.speaking && prev.speaking && askPending.current && next.phase === 'investigate' && next.round === prev.round) {
+              askPending.current = false;
+              if (left > 0) {
+                cue.turn();
+                say.push(`It's your turn to ask. ${qs}.`);
+              }
+            }
+          }
+          if (prev) {
+            const hunchOpen = next.hunch && next.hunch.utteranceId !== prev.hunch?.utteranceId;
+            const canHunch = left === 0 || youRef.current?.audience;
+            if (hunchOpen && canHunch && next.phase === 'investigate') {
+              cue.nudge();
+              say.push('Lying or truthful? Cast your hunch on that answer.');
+            }
+            const em = next.emergency;
+            if (em && em.stage !== prev.emergency?.stage) {
+              const sus = (id?: string) => (next.case?.suspects as SuspectX[] | undefined)?.find((s) => s.id === id);
+              if (em.stage === 'vote') say.push('Blackout! Vote for the suspect who must answer one extra question.');
+              if (em.stage === 'ask') {
+                const s = sus(em.suspectId);
+                const who = s ? shortName(s) : 'the suspect';
+                say.push(em.askedBy === myId ? `You won the race. You get a free question to ${who}. Hold to ask.` : `A free question goes to ${who}.`);
+                if (em.askedBy === myId) cue.turn();
+              }
+            }
+          }
+          if (say.length) announce(say.filter(Boolean).join(' '));
+          setRoom(next);
           break;
+        }
         case 'you:state': {
           const prev = youRef.current;
           const fresh = m.you.privateClues.filter((c) => !prev?.privateClues.some((p) => p.id === c.id));
@@ -127,7 +233,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             setNewClueIds((ids) => [...ids, ...fresh.map((c) => c.id)]);
             cue.clue();
             announce(
-              fresh.length === 1 ? `New private clue: ${fresh[0].title}.` : `${fresh.length} new private clues on your phone.`,
+              fresh.length === 1 ? `New clue: ${clueShort(fresh[0])}.` : `${fresh.length} new clues on your phone.`,
             );
           } else if (!prev) {
             setNewClueIds(m.you.privateClues.map((c) => c.id));
@@ -141,11 +247,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         }
         case 'utterance': {
           const u = m.u;
+          if (u.filler) break; // "Hmm." while they think: TV only
+          if (u.speaker !== 'narrator') setLastReply(u);
+          // Streaming answers arrive in pieces; speak each answer once, when it is complete.
+          if (u.partial || spokenIds.current.has(u.id)) break;
+          spokenIds.current.add(u.id);
           if (u.speaker === 'narrator') {
             setNarration(u.text);
             announce(u.text);
           } else {
-            setLastReply(u);
             announce(`${u.speakerName} says: ${u.text}`);
             if (getPrefs().speakReplies) speak(`${u.speakerName}. ${u.text}`);
           }
@@ -167,14 +277,83 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setNarration(m.text);
           announce(m.text);
           break;
-        case 'verdict':
-          setNarration(m.explanation);
-          announce(m.explanation);
+        case 'verdict': {
+          cue.locked();
+          const name = (roomRef.current?.case?.suspects ?? []).find((s) => s.id === m.theory.culprit)?.name ?? 'That theory';
+          if (m.proposalId) setProposal((cur) => (cur && cur.id === m.proposalId ? null : cur));
+          setVerdict({ verdict: m.verdict, explanation: m.explanation, culprit: m.theory.culprit, item: m.theory.item, at: Date.now() });
+          announce(`Verdict on ${name}: ${VERDICT_SAY[m.verdict]}. ${m.explanation}`, 'assertive');
           break;
+        }
         case 'error':
           cue.error();
           showToast(m.message, 'error');
           announce(m.message, 'assertive');
+          break;
+        case 'proposal': {
+          const myId = youRef.current?.playerId;
+          const p: Proposal = {
+            id: m.id,
+            by: m.by,
+            byName: m.byName,
+            culprit: m.culprit,
+            item: m.item,
+            agree: m.votes.agree.length,
+            needed: m.needed,
+            myVote: myId && m.votes.agree.includes(myId) ? true : myId && m.votes.notYet.includes(myId) ? false : null,
+            status: m.votes.agree.length >= m.needed ? 'testing' : 'open',
+            closesAt: m.closesAt,
+          };
+          setProposal(p);
+          if (p.by !== myId && p.myVote === null) {
+            const c = roomRef.current?.case;
+            const s = (c?.suspects as SuspectX[] | undefined)?.find((v) => v.id === p.culprit);
+            const it = c?.items.find((i) => i.id === p.item);
+            cue.nudge();
+            announce(`${p.byName ?? 'A player'} wants to test a theory: ${s ? shortName(s) : 'a suspect'}${it ? ` with the ${it.name}` : ''}. Agree, or not yet?`);
+          }
+          break;
+        }
+        case 'proposal:votes': {
+          const myId = youRef.current?.playerId;
+          setProposal((cur) =>
+            cur && cur.id === m.id
+              ? {
+                  ...cur,
+                  agree: m.agree.length,
+                  needed: m.needed,
+                  myVote: myId && m.agree.includes(myId) ? true : myId && m.notYet.includes(myId) ? false : null,
+                  status: m.agree.length >= m.needed ? 'testing' : 'open',
+                }
+              : cur,
+          );
+          break;
+        }
+        case 'event':
+          if (m.kind === 'chime') {
+            setChime(m.text);
+            if (chimedRound.current === roomRef.current?.round) break; // already said with the round change
+            announce(m.text);
+            break;
+          }
+          if (m.kind === 'coldOpen' || m.kind === 'titleCard') {
+            setNarration(m.text);
+            break;
+          }
+          if (m.kind === 'blackout') cue.crack();
+          else if (m.kind === 'objection') cue.thud();
+          else cue.phase();
+          setNarration(m.text);
+          announce(m.text, 'assertive');
+          break;
+        case 'haptic':
+          if (youRef.current?.role === 'accomplice' && m.pattern === 'heartbeat') {
+            cue.heartbeat();
+            setHeartbeat(Date.now());
+          }
+          break;
+        case 'hunch':
+          setHunchResult({ utteranceId: m.utteranceId, lying: m.lying, truth: m.truth });
           break;
         default:
           break;
@@ -235,8 +414,31 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setYou(null);
   }, []);
 
-  const readClues = useCallback(() => {
+  const askEarbud = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        earbudResolve.current = resolve;
+        setEarbudOpen(true);
+      }),
+    [],
+  );
+  const answerEarbud = useCallback((ok: boolean) => {
+    setEarbudOpen(false);
+    earbudResolve.current?.(ok);
+    earbudResolve.current = null;
+  }, []);
+
+  const speakSecret = useCallback(
+    async (text: string) => {
+      if (!(await askEarbud())) return;
+      setReading(speak(text, { onEnd: () => setReading(false) }));
+    },
+    [askEarbud],
+  );
+
+  const readClues = useCallback(async () => {
     stopSpeaking();
+    if (!(await askEarbud())) return;
     // Ask the server narrator first. If no narrator audio comes back quickly, use the phone's own voice.
     if (!demo && transport.current && status === 'open') {
       transport.current.send({ t: 'phone:readClues' });
@@ -250,7 +452,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const ok = speak(clueSpeech(youRef.current), { onEnd: () => setReading(false) });
     setReading(ok);
     if (!ok) showToast('This browser cannot read aloud. Your clues are listed below.', 'info');
-  }, [demo, status, showToast]);
+  }, [demo, status, showToast, askEarbud]);
 
   const stopReading = useCallback(() => {
     if (awaitingNarrator.current !== null) window.clearTimeout(awaitingNarrator.current);
@@ -281,6 +483,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     reading,
     newClueIds,
     markCluesSeen: () => setNewClueIds([]),
+    proposal,
+    hunchResult,
+    heartbeat,
+    chime,
+    verdict,
+    dismissVerdict: () => setVerdict(null),
+    earbudOpen,
+    answerEarbud,
+    speakSecret,
+    lastAsked,
+    markAsked: (id) => {
+      askPending.current = true;
+      setLastAsked(id);
+      store.set('accomplice:lastAsked', id);
+    },
     prefs,
     setPrefs: (p) => {
       storePrefs(p);

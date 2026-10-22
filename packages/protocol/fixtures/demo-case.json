@@ -31,6 +31,12 @@
       "Dr Bligh: steady pulse, shaky past. Colonel Hargreaves: loud stories, quiet debts.",
       "Mysterio: now you see him."
     ],
+    "paperName": "The Cotswold Gazette",
+    "clockChimes": [
+      9,
+      10,
+      11
+    ],
     "victim": {
       "name": "Lady Constance Ashby",
       "description": "Matriarch of Ashby Hall. Collector of grudges and very small dogs."
@@ -248,7 +254,7 @@
       "id": "r1b1",
       "kind": "testimony",
       "title": "Colonel Hargreaves's little secret",
-      "text": "At 8:00 pm, Colonel Rupert Hargreaves was in the Dining Room, swapping the place cards to sit next to their crush. Which explains all that insisting on the Great Hall.",
+      "text": "Colonel Rupert Hargreaves claims to have been in the Great Hall at 8:00 pm. Not so: Colonel Hargreaves was in the Dining Room, caught swapping the place cards to sit next to a secret crush. Mortifying, yes. Criminal, no.",
       "short": "Colonel Hargreaves fibbed about 8:00 pm: really in the Dining Room",
       "visibility": "board",
       "round": 1,
@@ -263,7 +269,7 @@
       "id": "r1b2",
       "kind": "physical",
       "title": "The croquet mallet",
-      "text": "A photograph of the Great Hall taken at 10:00 pm shows the croquet mallet in its usual spot, minding its own business.",
+      "text": "The Great Hall was tidied at 10:00 pm. The croquet mallet was there, exactly where it always is.",
       "short": "The croquet mallet, still in the Great Hall at 10:00 pm",
       "visibility": "board",
       "round": 1,
@@ -294,7 +300,7 @@
       "id": "r2b2",
       "kind": "physical",
       "title": "An alibi wobbles",
-      "text": "Mrs. Dolly Pargeter claims to have spent 9:30 pm in the Dining Room. But at 9:30 pm nobody was in the Dining Room: the lamps were off and the cat was asleep on the only chair.",
+      "text": "Mrs. Dolly Pargeter claims to have spent 9:30 pm in the Dining Room. But at 9:30 pm nobody was in the Dining Room: the door was still wedged shut with yesterday's newspaper.",
       "short": "No sign of Mrs Pargeter in the Dining Room at 9:30 pm",
       "visibility": "board",
       "round": 2,
@@ -309,7 +315,7 @@
       "id": "r3b1",
       "kind": "physical",
       "title": "An empty room",
-      "text": "Nobody was in the Dining Room at 9:30 pm: the lamps were off and the cat was asleep on the only chair. So Hugo Mysterio was not there either.",
+      "text": "Nobody was in the Dining Room at 9:30 pm: the dust on the floor shows not a single footprint. So Hugo Mysterio was not there either.",
       "short": "The Dining Room stood empty at 9:30 pm. No Mysterio",
       "visibility": "board",
       "round": 3,
@@ -324,7 +330,7 @@
       "id": "r3b2",
       "kind": "physical",
       "title": "An empty room",
-      "text": "At 8:00 pm the Kitchen stood empty: the lamps were off and the cat was asleep on the only chair. Wherever Dr. Harriet Bligh was, it was not there.",
+      "text": "Nobody was in the Kitchen at 8:00 pm: the lamps were off and the cat was asleep on the only chair. So Dr. Harriet Bligh was not there either.",
       "short": "The Kitchen stood empty at 8:00 pm. No Dr Bligh",
       "visibility": "board",
       "round": 3,
@@ -340,10 +346,10 @@
     "0": [
       {
         "id": "r1s0",
-        "kind": "testimony",
-        "title": "A pair of alibis",
-        "text": "At 10:00 pm, Dr. Harriet Bligh and Colonel Rupert Hargreaves were in the Study together, debating the correct way to butter toast. Neither will admit who won.",
-        "short": "Dr Bligh and Colonel Hargreaves, together in the Study at 10:00 pm",
+        "kind": "document",
+        "title": "A photograph",
+        "text": "A photograph from 10:00 pm: Dr. Harriet Bligh and Colonel Rupert Hargreaves in the Study, both pretending not to notice the camera.",
+        "short": "Photo: Dr Bligh and Colonel Hargreaves in the Study, 10:00 pm",
         "visibility": "private",
         "round": 1,
         "fact": {
@@ -360,7 +366,7 @@
         "id": "r2s0",
         "kind": "testimony",
         "title": "Algernon Pike's account",
-        "text": "\"Hugo Mysterio? In the Great Hall at 9:30 pm, with me. Talked my ear off the whole time,\" says Algernon Pike.",
+        "text": "Algernon Pike says Hugo Mysterio spent 9:30 pm in the Great Hall, humming the same four notes over and over.",
         "short": "Algy puts Mysterio in the Great Hall at 9:30 pm",
         "visibility": "private",
         "round": 2,
@@ -395,7 +401,7 @@
         "id": "r1s1",
         "kind": "testimony",
         "title": "Mrs. Dolly Pargeter keeps watch",
-        "text": "\"The Kitchen at 10:00 pm? I was there. Hugo Mysterio was not. I would have noticed,\" says Mrs. Dolly Pargeter.",
+        "text": "Mrs. Dolly Pargeter was in the Kitchen all through 10:00 pm and swears Hugo Mysterio never set foot in it.",
         "short": "Mrs Pargeter swears: no Mysterio in the Kitchen at 10:00 pm",
         "visibility": "private",
         "round": 1,
@@ -411,7 +417,7 @@
         "id": "r2s1",
         "kind": "testimony",
         "title": "Hugo Mysterio's account",
-        "text": "Hugo Mysterio remembers sharing the Great Hall with Algernon Pike at 9:30 pm, and would rather not discuss the conversation.",
+        "text": "Hugo Mysterio says Algernon Pike spent 9:30 pm in the Great Hall, humming the same four notes over and over.",
         "short": "Mysterio puts Algy in the Great Hall at 9:30 pm",
         "visibility": "private",
         "round": 2,
@@ -426,10 +432,10 @@
       },
       {
         "id": "r3s1",
-        "kind": "testimony",
-        "title": "Overheard",
-        "text": "Mrs. Dolly Pargeter and Algernon Pike were heard in the Dining Room at 9:00 pm, arguing about the host's terrible taste in wallpaper.",
-        "short": "Mrs Pargeter and Algy bickering in the Dining Room, 9:00 pm",
+        "kind": "document",
+        "title": "A photograph",
+        "text": "A photograph from 9:00 pm: Mrs. Dolly Pargeter and Algernon Pike in the Dining Room, both pretending not to notice the camera.",
+        "short": "Photo: Mrs Pargeter and Algy in the Dining Room, 9:00 pm",
         "visibility": "private",
         "round": 3,
         "fact": {
@@ -448,7 +454,7 @@
         "id": "r1s2",
         "kind": "physical",
         "title": "An empty room",
-        "text": "Nobody was in the Great Hall at 9:00 pm: the cushions were still perfectly plumped and nobody had touched the biscuits. So Hugo Mysterio was not there either.",
+        "text": "At 9:00 pm the Great Hall stood empty: the door was still wedged shut with yesterday's newspaper. Wherever Hugo Mysterio was, it was not there.",
         "short": "The Great Hall stood empty at 9:00 pm. No Mysterio",
         "visibility": "private",
         "round": 1,
@@ -499,7 +505,7 @@
         "id": "r1s3",
         "kind": "physical",
         "title": "An empty room",
-        "text": "Nobody was in the Study at 8:30 pm: the cushions were still perfectly plumped and nobody had touched the biscuits. So Hugo Mysterio was not there either.",
+        "text": "At 8:30 pm the Study stood empty: the cushions were still perfectly plumped and nobody had touched the biscuits. Wherever Hugo Mysterio was, it was not there.",
         "short": "The Study stood empty at 8:30 pm. No Mysterio",
         "visibility": "private",
         "round": 1,
@@ -515,7 +521,7 @@
         "id": "r2s3",
         "kind": "physical",
         "title": "The silk dressing gown cord",
-        "text": "The Library was tidied at 10:00 pm. The silk dressing gown cord was there, exactly where it always is.",
+        "text": "At 10:00 pm the silk dressing gown cord was right where it belongs, in the Library. Someone remembers dusting round it.",
         "short": "The silk dressing gown cord, still in the Library at 10:00 pm",
         "visibility": "private",
         "round": 2,
@@ -549,7 +555,7 @@
         "id": "r1s4",
         "kind": "testimony",
         "title": "Hugo Mysterio's account",
-        "text": "Hugo Mysterio remembers sharing the Library with Colonel Rupert Hargreaves at 9:00 pm, and would rather not discuss the conversation.",
+        "text": "\"Colonel Rupert Hargreaves? In the Library at 9:00 pm, with me. Talked my ear off the whole time,\" says Hugo Mysterio.",
         "short": "Mysterio puts Colonel Hargreaves in the Library at 9:00 pm",
         "visibility": "private",
         "round": 1,
@@ -565,7 +571,7 @@
         "id": "r2s4",
         "kind": "physical",
         "title": "The croquet mallet",
-        "text": "A photograph of the Great Hall taken at 8:00 pm shows the croquet mallet in its usual spot, minding its own business.",
+        "text": "At 8:00 pm the croquet mallet was right where it belongs, in the Great Hall. Someone remembers dusting round it.",
         "short": "The croquet mallet, still in the Great Hall at 8:00 pm",
         "visibility": "private",
         "round": 2,
@@ -599,7 +605,7 @@
         "id": "r1s5",
         "kind": "testimony",
         "title": "Hugo Mysterio's account",
-        "text": "Hugo Mysterio remembers sharing the Dining Room with Algernon Pike at 10:00 pm, and would rather not discuss the conversation.",
+        "text": "\"Algernon Pike? In the Dining Room at 10:00 pm, with me. Talked my ear off the whole time,\" says Hugo Mysterio.",
         "short": "Mysterio puts Algy in the Dining Room at 10:00 pm",
         "visibility": "private",
         "round": 1,
@@ -615,7 +621,7 @@
         "id": "r2s5",
         "kind": "physical",
         "title": "An empty room",
-        "text": "At 9:00 pm the Great Hall stood empty: the dust on the floor shows not a single footprint. Wherever Mrs. Dolly Pargeter was, it was not there.",
+        "text": "At 9:00 pm the Great Hall stood empty: the lamps were off and the cat was asleep on the only chair. Wherever Mrs. Dolly Pargeter was, it was not there.",
         "short": "The Great Hall stood empty at 9:00 pm. No Mrs Pargeter",
         "visibility": "private",
         "round": 2,
@@ -631,7 +637,7 @@
         "id": "r3s5",
         "kind": "physical",
         "title": "An empty room",
-        "text": "Nobody was in the Library at 10:00 pm: the lamps were off and the cat was asleep on the only chair. So Colonel Rupert Hargreaves was not there either.",
+        "text": "At 10:00 pm the Library stood empty: the lamps were off and the cat was asleep on the only chair. Wherever Colonel Rupert Hargreaves was, it was not there.",
         "short": "The Library stood empty at 10:00 pm. No Colonel Hargreaves",
         "visibility": "private",
         "round": 3,
@@ -728,5 +734,68 @@
       "says": "Mrs. Dolly Pargeter was not in the Dining Room at 9:30 pm.",
       "therefore": "So Mrs. Dolly Pargeter lied about 9:30 pm. Everyone else is ruled out. Mrs. Dolly Pargeter took the decanter of port from the Dining Room and was in the Kitchen at 9:30 pm."
     }
-  ]
+  ],
+  "confession": [
+    "Thirty years I fed Lady Constance. Thirty years of soup, and not one word of thanks. Not one.",
+    "At 9:30 pm I was in the Kitchen, the decanter of port from the Dining Room in hand. All very quiet.",
+    "Do spell my name correctly in the papers."
+  ],
+  "headline": {
+    "title": "SCANDAL AT ASHBY HALL",
+    "sub": "Cook unmasked; {DETECTIVE} toasts a famous victory"
+  },
+  "paperName": "The Cotswold Gazette",
+  "clockChimes": [
+    9,
+    10,
+    11
+  ],
+  "objections": {
+    "cook": {
+      "wasLying": true,
+      "line": "All right, all right. I may have passed through the Dining Room at 9:00 pm. Passing through is not a crime.",
+      "slip": "All right, all right. I may have passed through the Dining Room at 9:00 pm. Passing through is not a crime.",
+      "fact": {
+        "k": "at",
+        "s": "cook",
+        "room": "dining",
+        "slot": 2
+      },
+      "factText": "Mrs. Dolly Pargeter was in the Dining Room at 9:00 pm."
+    },
+    "nephew": {
+      "wasLying": true,
+      "line": "Oh, very well. At 8:30 pm I was in the Great Hall, not the Dining Room. I was sliding down the banister. Happy now?",
+      "slip": "Oh, very well. At 8:30 pm I was in the Great Hall, not the Dining Room. I was sliding down the banister. Happy now?",
+      "fact": {
+        "k": "at",
+        "s": "nephew",
+        "room": "hall",
+        "slot": 1
+      },
+      "factText": "Algernon Pike was in the Great Hall at 8:30 pm."
+    },
+    "doctor": {
+      "wasLying": false,
+      "line": "I beg your pardon? Check your clues before you insult me.",
+      "retort": "I beg your pardon? Check your clues before you insult me."
+    },
+    "colonel": {
+      "wasLying": true,
+      "line": "Oh, very well. At 8:00 pm I was in the Dining Room, not the Great Hall. I was swapping the place cards to sit next to a secret crush. Happy now?",
+      "slip": "Oh, very well. At 8:00 pm I was in the Dining Room, not the Great Hall. I was swapping the place cards to sit next to a secret crush. Happy now?",
+      "fact": {
+        "k": "at",
+        "s": "colonel",
+        "room": "dining",
+        "slot": 0
+      },
+      "factText": "Colonel Rupert Hargreaves was in the Dining Room at 8:00 pm."
+    },
+    "magician": {
+      "wasLying": false,
+      "line": "How dare you. Every word I said was true, and I resent the implication.",
+      "retort": "How dare you. Every word I said was true, and I resent the implication."
+    }
+  }
 }

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import type { Newspaper } from '@accomplice/protocol';
 import { Portrait, ScreenHeading, avatarLabel, portraitAlt } from '../components';
 import { useGame } from '../game';
 
@@ -26,7 +28,7 @@ export function Reveal() {
   const gotCulprit = myVote?.culprit === r.culprit;
   const gotItem = !!myVote?.item && myVote.item === r.item;
   // The server may tell us directly; otherwise judge from my own vote.
-  const caughtFlag = (r as { accompliceCaught?: boolean }).accompliceCaught;
+  const caughtFlag = r.accompliceCaught;
   const gotAccomplice = r.accomplice ? myVote?.accomplice === r.accomplice : !myVote?.accomplice;
 
   const ranking = Object.entries(r.scores)
@@ -74,6 +76,8 @@ export function Reveal() {
           )}
         </p>
       </section>
+
+      {r.newspaper && <FrontPage paper={r.newspaper} />}
 
       <section className="panel score" aria-labelledby="score-h">
         <h2 id="score-h">Your score</h2>
@@ -130,5 +134,61 @@ export function Reveal() {
       )}
       <p className="hint center">{final ? 'Fancy another? The host can start a new case from the TV.' : 'Watch the TV for the full story.'}</p>
     </div>
+  );
+}
+
+/** The morning paper. Save it, or share it straight to the group chat. */
+function FrontPage({ paper }: { paper: Newspaper }) {
+  const [status, setStatus] = useState<string | null>(null);
+  const fileName = `${paper.paperName.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-front-page.png`;
+  const save = async () => {
+    if (!paper.imageUrl) return;
+    try {
+      const blob = await fetch(paper.imageUrl).then((r) => (r.ok ? r.blob() : Promise.reject()));
+      const file = new File([blob], fileName, { type: blob.type || 'image/png' });
+      const nav = navigator as Navigator & { canShare?(d: ShareData): boolean };
+      if (nav.canShare?.({ files: [file] }) && nav.share) {
+        await nav.share({ files: [file], title: paper.title, text: `${paper.paperName}: ${paper.title}` });
+        setStatus('Shared.');
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setStatus('Saved to your downloads.');
+    } catch (e) {
+      if ((e as DOMException)?.name === 'AbortError') return; // closed the share sheet
+      setStatus('Could not save it. Press and hold the picture to save it instead.');
+    }
+  };
+  return (
+    <section className="panel paper-front" aria-labelledby="front-h">
+      <h2 id="front-h">The front page</h2>
+      {paper.imageUrl ? (
+        <img className="paper-front__img" src={paper.imageUrl} alt={`Front page of ${paper.paperName}, ${paper.date}. Headline: ${paper.title}. ${paper.sub}`} loading="lazy" />
+      ) : (
+        <div className="paper-front__html">
+          <p className="paper-front__name">{paper.paperName}</p>
+          <p className="paper-front__date">{paper.date}</p>
+          <p className="paper-front__title">{paper.title}</p>
+          <p className="paper-front__sub">{paper.sub}</p>
+        </div>
+      )}
+      {paper.imageUrl && (
+        <button type="button" className="btn btn--primary btn--block" onClick={save}>
+          Save the front page
+        </button>
+      )}
+      {status && (
+        <p className="hint center" role="status">
+          {status}
+        </p>
+      )}
+    </section>
   );
 }

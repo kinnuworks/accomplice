@@ -79,7 +79,7 @@ export class VoiceCapture {
 
   constructor(
     private cb: VoiceCallbacks,
-    private opts: { demo?: boolean; sttPath?: string } = {},
+    private opts: { demo?: boolean; sttPath?: string; room?: string; pid?: string; lang?: string } = {},
   ) {
     if (opts.demo) this.mode = 'demo';
     else if (!window.isSecureContext) this.mode = 'none';
@@ -129,7 +129,7 @@ export class VoiceCapture {
     const ws = this.ws;
     if (ws && ws.readyState === WebSocket.OPEN) {
       try {
-        ws.send(JSON.stringify({ t: 'end' }));
+        ws.send(JSON.stringify({ t: 'stop' }));
       } catch {
         /* ignore */
       }
@@ -159,7 +159,10 @@ export class VoiceCapture {
 
   private socketUrl() {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${proto}://${location.host}${this.opts.sttPath ?? '/stt'}?rate=16000&encoding=pcm16le`;
+    const q = new URLSearchParams({ rate: '16000' });
+    if (this.opts.room) q.set('room', this.opts.room);
+    if (this.opts.pid) q.set('pid', this.opts.pid);
+    return `${proto}://${location.host}${this.opts.sttPath ?? '/stt'}?${q}`;
   }
 
   private openSocket() {
@@ -182,26 +185,33 @@ export class VoiceCapture {
 
     ws.onopen = () => {
       opened = true;
+      // Protocol: one JSON start, then binary PCM16 frames, then a JSON stop.
+      ws.send(JSON.stringify({ t: 'start', sampleRate: 16000, ...(this.opts.lang ? { lang: this.opts.lang } : {}) }));
       window.clearTimeout(openTimer);
       for (const b of this.pending) ws.send(b);
       this.pending = [];
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data !== 'string') return;
-      let msg: { partial?: string; final?: string; error?: string };
+      let msg: { t?: string; text?: string; partial?: string; final?: string; error?: string; message?: string };
       try {
         msg = JSON.parse(ev.data);
       } catch {
         return;
       }
-      if (typeof msg.final === 'string') {
-        if (msg.final.trim()) this.finals.push(msg.final.trim());
+      // Accept both {t:'final', text} and the older {final: text} shape.
+      if (msg.t === 'final' || (msg.t === undefined && typeof msg.final === 'string')) {
+        const f = (msg.text ?? msg.final ?? '').trim();
+        if (f) this.finals.push(f);
         this.partial = '';
         this.emit(true);
-      } else if (typeof msg.partial === 'string') {
-        this.partial = msg.partial;
+        if (!this.capturing) window.setTimeout(resolveDone, 300); // likely the last words after stop
+      } else if (msg.t === 'partial' || (msg.t === undefined && typeof msg.partial === 'string')) {
+        this.partial = msg.text ?? msg.partial ?? '';
         this.emit(false);
-      } else if (msg.error && !this.text) {
+      } else if (msg.t === 'closed') {
+        resolveDone();
+      } else if ((msg.t === 'error' || msg.error) && !this.text) {
         void this.fallBack();
       }
     };
