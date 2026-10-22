@@ -1,0 +1,11 @@
+{
+  "name": "accomplice",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  },
+  "engines": { "node": ">=22" }
+}
