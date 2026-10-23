@@ -71,13 +71,21 @@ Also: a Cozy mode for kids (a stolen cake, no murder), questions and captions in
 
 **Voices and captions.** Amazon Polly neural voices give each suspect a distinct voice from the Mumbai region, and Polly speech marks light up captions word by word. Amazon Transcribe streaming turns the phone's hold-to-talk into text in about 0.63 s. Amazon Translate handles Hindi.
 
-**TV.** A 10-foot React stage inside a Vega OS app, D-pad only, tested at 1080p and 720p (39 screens each, no clipped text). On the Vega Virtual Device (release build, median of 5 runs): first frame in 749 ms, the live stage fully drawn in 1,452 ms including the network trip, and about 249 MiB of memory at the title screen including the WebView renderer. A release package for armv7, aarch64 and x86_64 and a judge run script are in the repo ([docs/VEGA.md](VEGA.md)).
+**TV.** A 10-foot React stage inside a Vega OS app, built from Amazon's Vega WebView template. We chose the WebView so one stage runs on Fire TV, in any browser for judges, and on the Echo Show card; the native side handles the remote, launch and the offline fallback. D-pad only, tested at 1080p and 720p (39 screens each, no clipped text). On the Vega Virtual Device (release build, median of 5 runs): first frame in 749 ms, the live stage fully drawn in 1,452 ms including the network trip, and about 249 MiB of memory at the title screen including the WebView renderer. A release package for armv7, aarch64 and x86_64 and a judge run script are in the repo ([docs/VEGA.md](VEGA.md)).
 
 **Phones.** A web page with large targets, screen-reader labels on everything, and haptic cues for hold-to-talk. 31 screens with zero axe accessibility violations.
 
 **Alexa+.** An MCP server on spec 2025-11-25 over Streamable HTTP: case generation runs as a task, the accusation uses elicitation to confirm, and the evidence board is an MCP Apps `ui://` card. Game state is keyed by household so the conversation can pick up later. It isn't tied to our own client: the official MCP Inspector CLI lists all 11 tools on the live server and starts a case through `tools/call`. On the live server a new case takes 1 to 2.6 s to start and a suspect answers in 1.1 to 2.3 s, depending on the case and whether the session is new. An optional house host built with Strands Agents connects to the same MCP tools and follows the add-on's SKILL.md, so it can answer questions like "remind me what the cook said" and question a suspect for you. It never accuses without a spoken yes. Simple commands skip the agent and answer instantly; agent answers start speaking in 0.9 to 2.9 s. Its model is one setting; Bedrock would be the default if our account could use it.
 
-**AWS.** One CDK stack: ECS Fargate (ARM) behind a load balancer, DynamoDB for room snapshots (a game survives a server restart) and detective records, S3 for the voice cache, Secrets Manager, a CloudWatch game dashboard and a $150 budget cap. Live at http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/tv/ (phones join over HTTPS through the QR code).
+**AWS.** The whole backend is one CDK stack, live in ap-south-1 at http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/tv/ (phones join over HTTPS through the QR code).
+- ECS Fargate (ARM, 0.5 vCPU) runs the game server behind a load balancer. App Runner was ruled out because it has no WebSockets.
+- DynamoDB stores room snapshots, so a game survives a server restart or a deploy, plus detective records.
+- Polly, Transcribe and Translate do every voice, every question and the Hindi mode.
+- S3 caches generated audio, so repeated narrator lines cost nothing after the first game.
+- Secrets Manager holds keys, and a CloudWatch dashboard tracks rooms, answer latency and case generation time.
+- A budget alarm caps spend at $150 a month.
+
+Cost: about $48 a month fixed, and $0.32 of AWS per 25-minute, 4-player game ($0.44 with Hindi), itemised in [docs/AWS.md](AWS.md). The suspect dialogue model is the one part outside AWS: Bedrock is blocked on our AWS India account, and switching to Nova is one setting.
 
 ## Challenges we ran into
 
