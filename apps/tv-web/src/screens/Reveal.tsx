@@ -99,7 +99,10 @@ export function Reveal() {
   const crimeRoom = c.rooms.find((r) => r.id === c.crime.room);
   const crimeSlot = c.slots.find((s) => s.id === c.crime.slot);
   const caught = !!rv.accompliceCaught;
-  const paper = rv.newspaper ?? defaultPaper(c, culprit ? shortName(culprit) : 'Culprit');
+  // The server sends the headline as `title`; demo data uses `headline`. Accept either, and never render a blank one.
+  const fallback = defaultPaper(c, culprit ? shortName(culprit) : 'Culprit');
+  const sent = rv.newspaper as (Newspaper & { title?: string }) | undefined;
+  const paper: Newspaper = sent ? { ...fallback, ...sent, headline: sent.headline ?? sent.title ?? fallback.headline } : fallback;
   const frontPageUrl = `${location.origin}/api/rooms/${room.code}/front-page.png`;
 
   return (

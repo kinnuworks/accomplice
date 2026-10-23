@@ -565,6 +565,6 @@
 .at-investigate .captionbar .wordcap { font-size: calc(30px * var(--ts)); }
 .at-accuse .captionbar, .at-reveal .captionbar, .at-results .captionbar { top: 40px; bottom: auto; }
 /* on the accusation the title sits top centre: narration goes in the free top-left corner, wrapping, never over the title */
-.at-accuse .captionbar { left: var(--sx); top: 28px; transform: none; max-width: 560px; animation-name: fade; }
+.at-accuse .captionbar { left: var(--sx); top: var(--sy); transform: none; max-width: 560px; animation-name: fade; }
 .at-accuse .captionbar .wordcap { font-size: calc(30px * var(--ts)); }
 .at-accuse .captionbar .cap-line { display: inline; white-space: normal; }
