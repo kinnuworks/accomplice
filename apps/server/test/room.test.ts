@@ -349,7 +349,7 @@ describe('game design features', () => {
     const opts = room.sabotageOptions();
     (room as any).engine = { ...(room as any).engine, verifyCase: async () => { throw new Error('solver crashed'); } };
     await expect(room.sabotage(acc, opts[0])).rejects.toThrow(/ink would not take/);
-    expect(room.smudged.size).toBe(0);
+    expect((room as any).smudged.size).toBe(0);
   });
 
   it('collects hunch votes from players who are out of questions and from the audience', async () => {

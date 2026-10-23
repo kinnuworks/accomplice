@@ -204,7 +204,7 @@ export class AccompliceStack extends Stack {
         // Suspects: neural voices next door in Mumbai. Narrator: generative voices in us-east-1, pre-rendered.
         POLLY_REGION: this.region,
         NARRATOR_POLLY_REGION: 'us-east-1',
-        NARRATOR_PROVIDER: String(ctx('narratorProvider', 'polly')),
+        NARRATOR_PROVIDER: String(ctx('narratorProvider', 'elevenlabs')),
         TTS_PROVIDER: 'polly',
         STT_PROVIDER: 'transcribe',
         TRANSLATE: 'on',

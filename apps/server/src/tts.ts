@@ -307,6 +307,20 @@ export async function narrate(text: string, tier: VoiceTier = 'narrator', opts: 
   return speak(text, cfg.narratorVoice, tier, opts);
 }
 
+// Hard spend cap: before any uncached ElevenLabs line, check the account's real remaining characters and switch to
+// Polly once fewer than ELEVENLABS_MIN_REMAINING (default 4000) would be left. Cached lines always play.
+let elQuota: { remaining: number; at: number } | null = null;
+async function elevenRemaining(apiKey: string): Promise<number> {
+  if (elQuota && Date.now() - elQuota.at < 60_000) return elQuota.remaining;
+  const res = await fetch('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': apiKey } });
+  if (!res.ok) throw new Error(`quota HTTP ${res.status}`);
+  const j: any = await res.json();
+  const remaining = Number(j.character_limit) - Number(j.character_count);
+  if (!Number.isFinite(remaining)) throw new Error('quota unknown');
+  elQuota = { remaining, at: Date.now() };
+  return remaining;
+}
+
 async function elevenSpeak(text: string, voice: string, apiKey: string): Promise<Speech> {
   const t0 = Date.now();
   const clean = text.trim();
@@ -325,6 +339,9 @@ async function elevenSpeak(text: string, voice: string, apiKey: string): Promise
     memo.set(k, r);
     return r;
   }
+  const floor = Number(process.env.ELEVENLABS_MIN_REMAINING ?? 4000);
+  const left = await elevenRemaining(apiKey);
+  if (left - clean.length < floor) throw new Error(`character budget reached (${left} left, floor ${floor})`);
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}/with-timestamps?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'xi-api-key': apiKey, 'content-type': 'application/json', accept: 'application/json' },
@@ -347,6 +364,7 @@ async function elevenSpeak(text: string, voice: string, apiKey: string): Promise
   });
   flush();
   const durationMs = mp3DurationMs(audio) || lastTime(marks);
+  if (elQuota) elQuota.remaining -= clean.length;
   await writeFile(mp3, audio);
   await writeFile(path.join(cfg.audioDir, `${h}.json`), JSON.stringify(marks));
   await writeFile(path.join(cfg.audioDir, `${h}.dur`), String(durationMs));
