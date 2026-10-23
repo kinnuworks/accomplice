@@ -1,0 +1,6 @@
+run1-title: n=28 median=248.6 MiB min=248.6 max=248.6
+run1-lobby: n=31 median=260.1 MiB min=259.9 max=260.1
+run2-title: n=30 median=251.0 MiB min=251.0 max=251.0
+run2-lobby: n=34 median=261.3 MiB min=261.3 max=261.3
+run3-title: n=29 median=247.5 MiB min=247.5 max=247.5
+run3-lobby: n=32 median=259.1 MiB min=259.0 max=259.1

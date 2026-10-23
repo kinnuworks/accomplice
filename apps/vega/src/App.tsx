@@ -20,6 +20,7 @@ const OFFLINE_PAGE = 'file:///pkg/assets/index.html';
 
 export const App = () => {
   const webRef = useRef(null);
+  const reportedFullyDrawn = useRef(false);
   const [uri, setUri] = useState(SERVER_URL + TV_PATH);
   usePreventHideSplashScreen();
   const hideSplashScreenCallback = useHideSplashScreenCallback();
@@ -45,6 +46,15 @@ export const App = () => {
         source={{uri}}
         onLoad={(_event: WebViewNavigationEvent) => {
           hideSplashScreenCallback();
+          // Time-to-fully-drawn marker for the Vega KPI Visualizer: the stage page
+          // (or the offline page) has finished loading. Only report once.
+          if (!reportedFullyDrawn.current) {
+            reportedFullyDrawn.current = true;
+            const perf = (globalThis as any).performance;
+            if (perf && typeof perf.reportFullyDrawn === 'function') {
+              perf.reportFullyDrawn();
+            }
+          }
         }}
         onError={({nativeEvent: {code, url, description}}: WebViewErrorEvent) => {
           console.error(`[onError]: (${code}: ${url}) ${description}`);

@@ -79,3 +79,10 @@ id = "com.amazon.gipc.uuid.*"
 id = "com.amazon.gipc.uuid.*" 
 
 # You may add other services as needed
+
+# The game server's public load balancer speaks plain HTTP. The Vega WebView
+# blocks cleartext HTTP by default, so allow it for that one host only.
+# (Key names come from the Vega package manager's manifest schema; this section
+# is not in the public docs as of SDK 0.24.)
+[network-traffic-policy.cleartext]
+allowed-domains = ["accomp-alb16-mczdj1mhvpfr-1726733199.ap-south-1.elb.amazonaws.com"]
