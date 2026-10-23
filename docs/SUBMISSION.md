@@ -63,7 +63,7 @@ Also: a Cozy mode for kids (a stolen cake, no murder), questions and captions in
 
 ## How we built it
 
-**A traitor who can't break the case.** The accomplice gets one secret action per round, such as burying a clue. Before it happens, Z3 checks that the case is still solvable without that clue, so sabotage makes the game harder but never unwinnable. The same check guards the Objection slip, so it can't give the answer away early.
+**A traitor who can't break the case.** The accomplice gets one secret action per round, such as burying a clue. Before it happens, Z3 checks that the case is still solvable without that clue, so sabotage makes the game harder but never unwinnable. If the solver can't confirm that in time, the sabotage is refused. Objection slips are screened by the engine's solver too, so a slip can't hand over the answer early.
 
 **Cases that can always be solved.** Our engine, `fairplay`, generates a case (people, rooms, a timeline, alibis, clues) and checks it with the Z3 solver before anyone plays: exactly one culprit fits every clue, removing any key clue breaks that, and the proof can be reached by round 3. Cases that fail are thrown away.
 

@@ -341,6 +341,17 @@ describe('game design features', () => {
     void phones;
   });
 
+  it('refuses a smudge when the solver cannot confirm the case stays solvable', async () => {
+    const { room } = await makeRoom(4, 11);
+    await room.start('tv');
+    await room.next('tv'); await room.next('tv');
+    const acc = room.accompliceId!;
+    const opts = room.sabotageOptions();
+    (room as any).engine = { ...(room as any).engine, verifyCase: async () => { throw new Error('solver crashed'); } };
+    await expect(room.sabotage(acc, opts[0])).rejects.toThrow(/ink would not take/);
+    expect(room.smudged.size).toBe(0);
+  });
+
   it('collects hunch votes from players who are out of questions and from the audience', async () => {
     const { room, tv } = await makeRoom(2);
     await room.start('tv');

@@ -549,7 +549,12 @@ export class Room {
     // Belt and braces: when the engine exposes its solver, prove the case is still uniquely solvable without the clue.
     if (this.engine.verifyCase) {
       const without = { ...c, clues: c.clues.filter((x) => x.id !== clueId) };
-      const ok = await Promise.race([this.engine.verifyCase(without).then((r) => r.uniqueCulprit && r.culprit === c.truth.culprit), new Promise<boolean>((r) => setTimeout(() => r(true), 3000))]);
+      // Fail closed: if the solver errors or runs long, the smudge is refused rather than risking an unsolvable case.
+      const ok = await Promise.race([
+        this.engine.verifyCase(without).then((r) => r.uniqueCulprit && r.culprit === c.truth.culprit, () => null),
+        new Promise<null>((r) => setTimeout(() => r(null), 8000)),
+      ]);
+      if (ok === null) throw new GameError('The ink would not take. Try again in a moment.');
       if (!ok) throw new GameError('That clue is too important to smudge.');
     }
     const clue = c.clues.find((x) => x.id === clueId)!;
