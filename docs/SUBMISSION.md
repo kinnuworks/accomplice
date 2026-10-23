@@ -4,9 +4,11 @@ Items in [brackets] still need a real number or link before submitting. Don't fi
 
 ## Tagline (under 200 characters)
 
-Question AI suspects out loud from your phone and find the killer, while one person on your couch is secretly helping them. Every case is solver-checked so it can be won.
+A murder-mystery party game for Fire TV where one of your friends is secretly helping the killer. Question AI suspects out loud from your phone and catch them both.
 
-**[Demo video link, top of the page.]** [One playtest number and one player quote.]
+**[Demo video link, top of the page.]**
+
+[Playtest line: "We played N games with N people on [date]. N of N groups asked for another case." Plus one player quote. Numbers come from the server log.]
 
 ## Inspiration
 
@@ -26,9 +28,44 @@ At the end the room names the culprit and votes on the accomplice. The reveal wa
 
 Also: a Cozy mode for kids (a stolen cake, no murder), questions and captions in Hindi, and a phone that works fully with VoiceOver and TalkBack. [Blind-player playtest result, only if it happened.]
 
+## What is real and what isn't
+
+| Part | Status |
+|---|---|
+| Fire TV app | Real Vega OS app, run on the Vega Virtual Device. Not yet tried on a Fire TV stick. |
+| Phones | Real: any iPhone or Android browser, no install. |
+| Suspects' voices and listening | Real Amazon Polly, Transcribe and Translate calls. |
+| Cases | Generated fresh each game and checked by Z3 before play. |
+| Alexa+ | A real MCP server, tested with the official MCP Inspector and our Echo Show simulator. Not tested on a real Alexa+ device, because the toolkit is partner-only. |
+| AWS deploy | Real, live in ap-south-1. |
+| Suspect dialogue model | A model API outside AWS, because Bedrock is blocked on our account. One setting switches to Bedrock. |
+
+## Measured numbers
+
+| What | Number | How measured |
+|---|---|---|
+| Phone question to first spoken word | 1.56 s median, 2.84 s p95 | Server timings over a real-API game simulation |
+| Speech to text | 0.63 s | Amazon Transcribe final-transcript latency |
+| Vega app, first frame | 749 ms (median of 5) | `vega exec perf kpi-visualizer`, Vega Virtual Device |
+| Vega app, live stage drawn | 1,452 ms (median of 5) | Same tool, includes the network trip |
+| Vega app memory | about 249 MiB title, 260 MiB lobby | `perf activity-monitor` |
+| Alexa+ tool calls, live | 1 to 2.6 s | MCP calls against the deployed server |
+| Phone accessibility | 0 axe violations on 32 screens | axe-core in the e2e harness |
+| Case engine tests | 28 passing | `fairplay` test suite |
+
+## Limits
+
+1. Not yet run on a physical Fire TV.
+2. Not yet run on a real Alexa+ device.
+3. [Playtest: N real games so far.]
+4. Suspect dialogue uses a model outside AWS.
+5. The phone link is a tunnel address that changes when the server restarts. The TV link stays fixed and always shows the current one.
+
 ## How we built it
 
-**Cases that can always be solved.** Our engine, `fairplay`, generates a case (people, rooms, a timeline, alibis, clues) and checks it with the Z3 solver before anyone plays: exactly one culprit fits every clue, removing any key clue breaks that, and the proof can be reached by round 3. Cases that fail are thrown away. The accomplice's sabotage and the Objection slip are checked the same way, so neither can make the case unsolvable or give it away early.
+**A traitor who can't break the case.** The accomplice gets one secret action per round, such as burying a clue. Before it happens, Z3 checks that the case is still solvable without that clue, so sabotage makes the game harder but never unwinnable. The same check guards the Objection slip, so it can't give the answer away early.
+
+**Cases that can always be solved.** Our engine, `fairplay`, generates a case (people, rooms, a timeline, alibis, clues) and checks it with the Z3 solver before anyone plays: exactly one culprit fits every clue, removing any key clue breaks that, and the proof can be reached by round 3. Cases that fail are thrown away.
 
 **Suspects who can't leak.** Each suspect only receives its own slice of the case and a list of what it may lie about. The culprit's identity is never in another suspect's prompt. Replies stream sentence by sentence, and every sentence goes through a deterministic claim checker before it is spoken. A sentence that contradicts the case is dropped and regenerated.
 
