@@ -1,6 +1,6 @@
 {
   "name": "@accomplice/fairplay",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Procedural mystery cases that a logic solver proves fair: exactly one culprit, every key clue necessary.",
   "license": "MIT",
   "author": "Dhiraj Kavuri",

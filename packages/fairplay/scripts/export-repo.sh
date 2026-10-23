@@ -36,7 +36,7 @@ find "$DEST" -name '*.bak' -delete
 cat > "$DEST/package.json" <<JSON
 {
   "name": "$NAME",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Murder mysteries that a logic solver proves fair: procedural cases with exactly one culprit, checked by Z3.",
   "keywords": ["mystery", "whodunit", "procedural generation", "puzzle", "z3", "smt", "game", "party game", "deduction"],
   "license": "MIT",

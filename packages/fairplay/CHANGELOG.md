@@ -2,6 +2,14 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/), and the project uses [semantic versioning](https://semver.org/).
 
+## [1.0.0] - 2026-10-23
+
+First stable release. The public API is the same as 0.1.0 and is now covered by semantic versioning.
+
+### Changed
+- README rewritten: a runnable example with real output, a table of what `verifyCase` guarantees and how each check works, an API reference with signatures, measured test count and timings, and known limits.
+- Package version set to 1.0.0.
+
 ## [0.1.0] - 2026-10-23
 
 ### Added
