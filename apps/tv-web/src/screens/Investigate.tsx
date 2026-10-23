@@ -310,7 +310,7 @@ export function Investigate() {
           body={room.round >= 3 ? 'No more questions. Everyone votes in secret on their phone.' : 'New clues go on the board. Any questions not asked yet are lost.'}
           yes={room.round >= 3 ? 'Start the vote' : 'Next round'}
           no="Not yet"
-          onYes={() => { setMoveOn(false); send({ t: 'tv:next' }); }}
+          onYes={() => { setMoveOn(false); send({ t: 'tv:next', from: { phase: room.phase, round: room.round } }); }}
           onNo={() => setMoveOn(false)}
         />
       )}

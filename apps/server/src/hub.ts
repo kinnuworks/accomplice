@@ -208,7 +208,11 @@ export class Hub {
     switch (msg.t) {
       case 'tv:setTone': tvOrHost(); return room.setTone(isTv ? 'tv' : pid ?? '', msg.tone);
       case 'tv:start': tvOrHost(); return room.start(actor);
-      case 'tv:next': tvOrHost(); return room.next(actor);
+      case 'tv:next':
+        tvOrHost();
+        // A confirm left open from an earlier round must not skip this one or close the vote.
+        if (msg.from && (msg.from.phase !== room.phase || msg.from.round !== room.round)) return;
+        return room.next(actor);
       case 'tv:pin': tvOrHost(); return room.pin(msg.clueId);
       case 'tv:unpin': tvOrHost(); return room.unpin(msg.clueId);
       case 'tv:link': tvOrHost(); return room.link(msg.a, msg.b);

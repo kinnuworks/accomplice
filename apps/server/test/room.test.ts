@@ -436,6 +436,23 @@ describe('pacing and playback', () => {
     } finally { cfg.roundSeconds = prev; cfg.moreTimeSeconds = prevMore; }
   });
 
+  it('times a new round from its own deadline, not the previous phase', async () => {
+    const { cfg } = await import('../src/config.js');
+    const prev = cfg.roundSeconds; cfg.roundSeconds = 0.3;
+    try {
+      const { room } = await makeRoom(1);
+      await room.start('tv');
+      (room as any).deadlineAt = Date.now() - 1000; // stale deadline left by the briefing or tutorial
+      await room.next('tv');
+      if (room.phase === 'tutorial') { (room as any).deadlineAt = Date.now() - 1000; await room.next('tv'); }
+      expect(room.round).toBe(1);
+      await new Promise((r) => setTimeout(r, 100));
+      expect(room.round).toBe(1);
+      await new Promise((r) => setTimeout(r, 400));
+      expect(room.round).toBeGreaterThanOrEqual(2);
+    } finally { cfg.roundSeconds = prev; }
+  });
+
   it('measures objection and hunch windows from when the TV actually plays the answer', async () => {
     const { room, tv } = await makeRoom(2);
     await room.start('tv');

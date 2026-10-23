@@ -137,7 +137,7 @@ export function App() {
             title={round >= 3 ? 'Time to accuse?' : `Move on to round ${round + 1}?`}
             body={round >= 3 ? 'No more questions. Everyone votes in secret on their phone.' : 'New clues go on the board. Any questions not asked yet are lost.'}
             yes={round >= 3 ? 'Start the vote' : 'Next round'} no="Not yet"
-            onYes={() => { setMenu(null); send({ t: 'tv:next' }); }} onNo={() => setMenu(null)}
+            onYes={() => { setMenu(null); send({ t: 'tv:next', from: { phase: phase ?? 'lobby', round } }); }} onNo={() => setMenu(null)}
           />
         )}
         {menu === 'leave' && (

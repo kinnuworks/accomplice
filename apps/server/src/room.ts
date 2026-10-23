@@ -418,9 +418,10 @@ export class Room {
     this.phase = 'investigate'; this.round = r;
     this.smudged.clear();
     this.cancelAutoAdvance();
-    this.armRoundTimer();
     for (const p of this.players) p.questionsLeft = cfg.questionsPerRound;
+    // Set the new deadline before arming the timer, or it fires on the previous phase's deadline.
     this.deadlineAt = cfg.roundSeconds > 0 ? Date.now() + cfg.roundSeconds * 1000 : undefined;
+    this.armRoundTimer();
     const board = c.clues.filter((x) => x.visibility === 'board' && x.round === r);
     this.board.revealed.push(...board.map((x) => x.id));
     this.dealPrivate(r);

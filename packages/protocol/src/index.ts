@@ -209,7 +209,7 @@ export type ClientToServer =
   | { t: 'tv:create'; tone?: Tone }
   | { t: 'tv:start' }
   | { t: 'tv:setTone'; tone: Tone }
-  | { t: 'tv:next' }                               // advance phase/round (host remote)
+  | { t: 'tv:next'; from?: { phase: string; round: number } } // advance phase/round (host remote); `from` makes a stale press a no-op
   | { t: 'tv:pin'; clueId: string }
   | { t: 'tv:unpin'; clueId: string }
   | { t: 'tv:link'; a: string; b: string }
