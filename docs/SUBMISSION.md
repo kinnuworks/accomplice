@@ -123,12 +123,12 @@ amazon-polly, amazon-transcribe, amazon-translate, amazon-dynamodb, amazon-ecs, 
 
 ## Testing instructions
 
-1. Open http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/tv/ on a laptop or TV browser, or install the Vega package from the repository's releases on a Fire TV or the Vega Virtual Device.
+1. Open http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/tv/ on a laptop or TV browser, or install the Vega package from https://github.com/kinnuworks/accomplice/releases/tag/v1.0.0 on the Vega Virtual Device (`apps/vega/scripts/judge-run.sh <package>`).
 2. Scan the QR code with two or more phones (iPhone Safari or Android Chrome). Allow the microphone.
 3. Press Start on the TV with the remote or Enter key. Hold the talk button on a phone and ask a suspect a question.
 4. Alexa+: open http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/echo/ for the Echo Show simulator, or point any MCP client at the HTTPS address shown in the TV lobby, plus /mcp.
 
-Repositories are shared with the judges listed in the rules and testing@devpost.com.
+Code: https://github.com/kinnuworks/accomplice (MIT). Case engine: https://github.com/kinnuworks/fairplay (MIT, v1.0.0). Vega packages: https://github.com/kinnuworks/accomplice/releases/tag/v1.0.0
 
 ## Video shot list (about 3 minutes; the user narrates)
 
