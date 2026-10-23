@@ -12,7 +12,7 @@
     "tunnel": "cloudflare",
     "cpu": 512,
     "memoryMiB": 1024,
-    "narratorProvider": "polly",
+    "narratorProvider": "elevenlabs",
     "@aws-cdk/aws-iam:minimizePolicies": true,
     "@aws-cdk/core:target-partitions": [
       "aws"
