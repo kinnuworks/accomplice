@@ -147,8 +147,8 @@ const flowErrors = [];
 flow.on('pageerror', (e) => flowErrors.push(e.message));
 try {
   await flow.goto(`${base}?demo=1&footer=1&room=MOTH`);
-  await flow.getByLabel('Your name').fill('Ada');
-  await flow.getByRole('radio', { name: 'Calling card: Owl' }).check();
+  await flow.getByLabel('Your name').fill('Priya');
+  await flow.getByRole('radio', { name: 'Calling card: Fox' }).check();
   await flow.getByRole('button', { name: 'Step inside' }).click();
   await flow.getByRole('heading', { level: 1, name: 'The guests are arriving' }).waitFor();
   await flow.getByRole('button', { name: 'Start the mystery' }).click();

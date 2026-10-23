@@ -1,5 +1,7 @@
 // Walk through a whole case in the simulator and save screenshots.
 // Needs the simulator running (pnpm --filter @accomplice/echo-sim dev) with an add-on behind /mcp.
+// It plays Ashby Hall, the case the TV and phone demos play: run the add-on with FAKE_CASE=demo
+// (FAKE_CASE=demo pnpm --filter @accomplice/mcp-game dev), so all three sets of screenshots tell one story.
 //   node screenshots/take.mjs [baseUrl]
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
@@ -35,15 +37,15 @@ await sayIt('start a new case');
 await boardShows('Working on it');
 await page.waitForTimeout(800);
 await shot('02-starting-task');
-await boardShows('Marlow House');
+await boardShows('Ashby Hall');
 await shot('03-case-file');
 
 await sayIt('who are the suspects');
 await boardShows('Who will you question?');
 await shot('04-suspects');
 
-await sayIt('ask the cook where she was at nine');
-await boardShows('pie timer');
+await sayIt('ask the cook where she was at half past nine');
+await boardShows('cheese board');
 await shot('05-suspect-reply');
 
 // the same card in light mode
@@ -54,12 +56,12 @@ await page.getByRole('button', { name: /Switch the display to dark mode/ }).clic
 // touch works too: the board calls tools through the host bridge
 await board().getByRole('button', { name: 'Ask someone else' }).click();
 await boardShows('Who will you question?');
-await board().getByRole('button', { name: /Question Clara Marlow/ }).click();
-await boardShows('On the telephone to London');
+await board().getByRole('button', { name: /Question Algernon Pike/ }).click();
+await boardShows('coins out of my ear');
 await shot('05b-touch-question');
 
-await sayIt('examine the boot prints');
-await boardShows('Muddy boot prints');
+await sayIt('examine the croquet mallet');
+await boardShows('exactly where it always is');
 await shot('06-clue');
 
 await sayIt('next round');
@@ -70,7 +72,7 @@ await sayIt('give me a hint');
 await boardShows('A gentle nudge');
 await shot('07-hint');
 
-await sayIt('I accuse the gardener with the candlestick');
+await sayIt('I accuse the cook with the decanter of port');
 await page.getByRole('dialog').waitFor({ timeout: 15_000 });
 await shot('08-elicitation');
 await page.getByRole('dialog').getByRole('button', { name: 'Yes' }).click();
@@ -93,11 +95,11 @@ await shot('11-continue-on-tv');
 await page.locator('.t.request .t-method', { hasText: 'elicitation/create' }).first().click();
 await shot('12-drawer-elicitation');
 
-// context across sessions: start a case, ask a question, close the page, come back later
-await sayIt('start a cozy case');
-await boardShows('Birthday Cake');
-await sayIt('ask Pip where he was at three');
-await boardShows('kite');
+// context across sessions: start the case again, ask a question, close the page, come back later
+await sayIt('start a new case');
+await boardShows('Ashby Hall');
+await sayIt('ask the colonel where he was at eight');
+await boardShows('inspecting the umbrellas');
 await page.setViewportSize({ width: 1600, height: 1000 });
 await page.goto(`${base}?mute=1&drawer=0&household=${household}`);
 await page.getByText(/add-on connected/).waitFor({ timeout: 15_000 });

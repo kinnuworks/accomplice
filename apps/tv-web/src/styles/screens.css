@@ -61,10 +61,10 @@
 .join-text { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 30px; }
 .join-step { font-size: 30px; display: flex; align-items: center; gap: 18px; line-height: 1.25; }
 .step-num { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--gold); color: var(--ink); font-weight: 800; font-size: 28px; }
-.join-url { color: var(--gold); font-weight: 700; }
+/* the typed address is the fallback, so it reads as a quiet second line under the step, not a headline */
+.join-url { display: block; margin-top: 4px; font-size: 28px; font-weight: 500; color: rgba(247, 238, 219, 0.78); letter-spacing: 0.01em; }
 /* long tunnel hosts wrap at dots, hyphens and slashes (see BreakableUrl); break-word only for a single label too long for a line */
 .join-step-text { min-width: 0; overflow-wrap: break-word; }
-.join-url.is-long { font-size: 28px; }
 .room-code { grid-column: 1 / -1; display: flex; gap: 24px; justify-content: center; align-self: end; }
 .code-tile {
   display: grid; place-items: center; width: 150px; height: 160px; border-radius: 16px;

@@ -2589,7 +2589,7 @@ html {
   scroll-padding-bottom: calc(var(--dock-h, 0px) + 0.75rem);
 }
 
-/* at large text sizes the mic icon and label stop growing at a phone-width cap, so a name like "Pemberton"
+/* at large text sizes the mic icon and label stop growing at a phone-width cap, so a name like "Pemberton" or "Hargreaves"
    still fits beside the icon and the button never pushes off screen */
 .talk {
   font-size: min(1.2rem, 8vw);

@@ -248,7 +248,8 @@ img { display: block; }
 .clue-text { font-size: calc(var(--cb, 30px) * var(--ts)); line-height: 1.2; font-weight: 500; color: #3b2a1e; }
 .clue-card.no-short .clue-text { display: none; }
 .clue-card.long-title .clue-title { font-family: var(--f-display); font-weight: 700; font-size: var(--ct, 34px); line-height: 1.14; margin: 4px 0 6px; }
-.clue-pin { position: absolute; left: 50%; top: -14px; width: 46px; height: 46px; margin-left: -23px; opacity: 0; transform: translateY(-30px) scale(1.4); transition: opacity var(--t-fast), transform 180ms var(--ease-slam); filter: drop-shadow(5px 8px 3px rgba(0, 0, 0, 0.55)); z-index: 2; }
+/* the pin sits on the card's top edge, its head above the paper, so it never covers the kind label or title */
+.clue-pin { position: absolute; left: 50%; top: -33px; width: 46px; height: 46px; margin-left: -23px; opacity: 0; transform: translateY(-30px) scale(1.4); transition: opacity var(--t-fast), transform 180ms var(--ease-slam); filter: drop-shadow(5px 8px 3px rgba(0, 0, 0, 0.55)); z-index: 2; }
 .clue-pin svg { width: 100%; height: 100%; }
 .clue-card.is-pinned .clue-pin { opacity: 1; transform: none; }
 .clue-card:not(.is-pinned) .clue-inner { filter: brightness(0.86) saturate(0.8); }

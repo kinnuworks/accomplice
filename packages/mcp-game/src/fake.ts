@@ -164,11 +164,94 @@ const COZY: FakeCase = {
   ],
 };
 
+// The Ashby Hall case from packages/protocol/fixtures/demo-case.json: the same cast, culprit, means and clues
+// the TV and phone demos play, so every product shot tells one story. Used when FakeGameOptions.caseSet is 'demo'.
+const ASHBY: FakeCase = {
+  summary: {
+    id: 'ashby-hall-classic-8',
+    tone: 'classic',
+    title: 'A Rather Final Dinner at Ashby Hall',
+    place: 'Ashby Hall, a creaking country house in the Cotswolds',
+    dateLine: 'A wet Saturday in November, 1932',
+    intro: 'Rain hammers the windows of Ashby Hall. The bridge is out, the telephone is dead, and the soup was only lukewarm. Lady Constance Ashby was found in the Kitchen at half past nine, quite dead, her teacup still perfectly level. Five guests are still in the house. One of them did it.',
+    victim: { name: 'Lady Constance Ashby', description: 'Matriarch of Ashby Hall. Collector of grudges and very small dogs.' },
+    crime: { room: 'the kitchen', time: '9:30 pm', what: 'was found dead' },
+    items: [
+      { id: 'draught', name: 'the bottle of sleeping draught' },
+      { id: 'mallet', name: 'the croquet mallet' },
+      { id: 'cord', name: 'the silk dressing gown cord' },
+      { id: 'decanter', name: 'the decanter of port' },
+    ],
+  },
+  suspects: [
+    { id: 'cook', portraitUrl: '/tv/art/portraits/cook.webp', name: 'Mrs. Dolly Pargeter', role: 'the cook', motive: 'Lady Constance was about to replace her with a fancy chef from Paris.',
+      claimedAlibi: 'Says she was laying out the cheese in the Dining Room at half past nine.',
+      where: 'Half past nine? In the Dining Room, laying out the cheese. Nobody lays out a cheese board like I do.',
+      why: 'A chef from Paris! Thirty years of my gravy and she wanted snails. Cross, yes. Wicked, no.',
+      saw: 'I saw young Mr Pike sliding down the banister in the Great Hall like a schoolboy. At his age.',
+      other: 'The decanter of port lives in the Dining Room. I never touch it. Hardly ever.' },
+    { id: 'nephew', portraitUrl: '/tv/art/portraits/nephew.webp', name: 'Algernon Pike', role: 'the hard-up nephew', motive: 'Lady Constance cut him out of the will last Tuesday.',
+      claimedAlibi: 'Says he was in the Dining Room at half past eight.',
+      where: 'Half past eight, the Dining Room, dear thing. And at half past nine the Great Hall, watching Mysterio pull coins out of my ear.',
+      why: 'Aunt Constance cut me out of the will on Tuesday. Rotten timing, I grant you, but I am a lover, not a poisoner.',
+      saw: 'Mysterio was with me in the Great Hall at half past nine. He found a shilling in my ear. Twice.',
+      other: 'I may have borrowed the Colonel\'s umbrella. And his hat. Not his port.' },
+    { id: 'doctor', portraitUrl: '/tv/art/portraits/doctor.webp', name: 'Dr. Harriet Bligh', role: 'the family doctor', motive: 'Lady Constance owed her three years of unpaid house calls.',
+      claimedAlibi: 'Says she was in the Study with the Colonel at ten.',
+      where: 'At ten I was in the Study with the Colonel, arguing about toast. Medically, he was wrong.',
+      why: 'She owed me three years of house calls. One does not murder a debtor. One sends a stern letter.',
+      saw: 'I heard the kitchen door bang a little after nine. Kitchens are not my department.',
+      other: 'The sleeping draught in the Pantry is mine. It was exactly where I left it at nine.' },
+    { id: 'colonel', portraitUrl: '/tv/art/portraits/colonel.webp', name: 'Colonel Rupert Hargreaves', role: 'the retired colonel', motive: 'Lady Constance told everyone the Colonel spent the war in a supply depot. He did.',
+      claimedAlibi: 'Says he was in the Great Hall at eight.',
+      where: 'Eight o\'clock? The Great Hall, inspecting the umbrellas. And at ten, the Study, with the doctor.',
+      why: 'She told everyone I spent the war in a supply depot. I did. It was a very dangerous depot.',
+      saw: 'Saw young Pike on the banister. Disgraceful. Rather good form, mind you.',
+      other: 'The place cards at dinner were perfectly arranged. By whom is nobody\'s business.' },
+    { id: 'magician', portraitUrl: '/tv/art/portraits/magician.webp', name: 'Hugo Mysterio', role: 'the stage magician', motive: 'Lady Constance was his biggest investor, and wanted the money back.',
+      claimedAlibi: 'Says he was in the Great Hall at half past nine.',
+      where: 'Half past nine, the Great Hall, entertaining young Algernon. Ask him to check his ear.',
+      why: 'She was my biggest investor and wanted her money back. Dead investors do not pay, my friend.',
+      saw: 'The Dining Room door was wedged shut all evening. I tried it, for a trick.',
+      other: 'A magician never reveals his secrets. Except that one. The coin was in my sleeve.' },
+  ],
+  clues: [
+    { id: 'r1b1', title: 'Colonel Hargreaves\'s little secret', kind: 'testimony', round: 1,
+      text: 'Colonel Rupert Hargreaves claims to have been in the Great Hall at 8:00 pm. Not so: he was in the Dining Room, caught swapping the place cards to sit next to a secret crush. Mortifying, yes. Criminal, no.' },
+    { id: 'r1b2', title: 'The croquet mallet', kind: 'physical', round: 1,
+      text: 'The Great Hall was tidied at 10:00 pm. The croquet mallet was there, exactly where it always is.' },
+    { id: 'r2b1', title: 'Algy\'s little secret', kind: 'testimony', round: 2,
+      text: 'Fresh evidence: at 8:30 pm Algernon Pike was in the Great Hall, sliding down the banister. Not the Dining Room, whatever Algy may say.' },
+    { id: 'r2b2', title: 'An alibi wobbles', kind: 'physical', round: 2,
+      text: 'Mrs. Dolly Pargeter claims to have spent 9:30 pm in the Dining Room. But at 9:30 pm nobody was in the Dining Room: the door was still wedged shut with yesterday\'s newspaper.' },
+    { id: 'r3b1', title: 'An empty Dining Room', kind: 'physical', round: 3,
+      text: 'Nobody was in the Dining Room at 9:30 pm: the dust on the floor shows not a single footprint. So Hugo Mysterio was not there either.' },
+    { id: 'r3b2', title: 'An empty Kitchen', kind: 'physical', round: 3,
+      text: 'Nobody was in the Kitchen at 8:00 pm: the lamps were off and the cat was asleep on the only chair. So Dr. Harriet Bligh was not there either.' },
+  ],
+  culprit: 'cook',
+  means: 'decanter',
+  hints: [
+    { text: 'Start with the croquet mallet. Where was it at ten, and could it have been in the Kitchen at half past nine?', clueId: 'r1b2' },
+    { text: 'The Colonel told a little fib about eight o\'clock. Embarrassing, but does it matter for half past nine?', clueId: 'r1b1' },
+    { text: 'Someone says they were in the Dining Room at half past nine. Was anybody in there at all?', clueId: 'r2b2' },
+    { text: 'Who is left with nobody to vouch for them at half past nine, and what lives in the Dining Room?' },
+  ],
+  steps: [
+    { says: 'Dr. Harriet Bligh and Colonel Rupert Hargreaves were together in the Study at 10:00 pm.', therefore: 'Dr. Harriet Bligh and Colonel Rupert Hargreaves are in the clear.' },
+    { says: 'Algernon Pike and Hugo Mysterio were in the Great Hall at 9:30 pm.', therefore: 'Neither of them could have done it.' },
+    { says: 'The croquet mallet was in the Great Hall at 10:00 pm, and the cord in the Library at 9:00 pm.', therefore: 'Neither was used.' },
+    { says: 'Mrs. Dolly Pargeter was not in the Dining Room at 9:30 pm.', therefore: 'Mrs. Dolly Pargeter lied about 9:30 pm. She took the decanter of port from the Dining Room and was in the Kitchen at 9:30 pm.' },
+  ],
+};
+
 export interface FakeGameOptions {
   /** Milliseconds per generation step. Default 250. */
   stepMs?: number;
   /** Room code this game pretends to have on the TV. */
   roomCode?: string;
+  /** 'demo': the classic case is Ashby Hall, the case the TV and phone demos play (room MOTH). Default: Marlow House. */
+  caseSet?: 'default' | 'demo';
 }
 
 /** Thrown for unknown ids so the add-on can answer kindly. */
@@ -178,7 +261,9 @@ export class NoCaseError extends Error {
 }
 
 export function createFakeGameApi(opts: FakeGameOptions = {}): GameApi & { readonly accusations: number } {
-  const roomCode = opts.roomCode ?? 'MRLW';
+  const demoSet = opts.caseSet === 'demo';
+  const CLASSIC_CASE = demoSet ? ASHBY : CLASSIC;
+  const roomCode = opts.roomCode ?? (demoSet ? 'MOTH' : 'MRLW');
   const stepMs = opts.stepMs ?? 250;
   let current: FakeCase | null = null;
   let solved = false;
@@ -213,7 +298,7 @@ export function createFakeGameApi(opts: FakeGameOptions = {}): GameApi & { reado
         await new Promise((r) => setTimeout(r, stepMs));
       }
       o?.onProgress?.({ progress: steps.length, total: steps.length, message: 'The case is ready' });
-      current = tone === 'cozy' ? COZY : CLASSIC;
+      current = tone === 'cozy' ? COZY : CLASSIC_CASE;
       solved = false;
       hintIndex = 0;
       round = 1;
@@ -252,7 +337,7 @@ export function createFakeGameApi(opts: FakeGameOptions = {}): GameApi & { reado
     },
 
     resumeCase(ref: CaseRef) {
-      const c = [CLASSIC, COZY].find((x) => x.summary.id === ref.caseId) ?? (ref.roomCode === roomCode ? current : null);
+      const c = [CLASSIC_CASE, COZY].find((x) => x.summary.id === ref.caseId) ?? (ref.roomCode === roomCode ? current : null);
       if (!c) return null;
       if (current !== c) { current = c; solved = false; hintIndex = 0; asked.clear(); round = Math.min(3, Math.max(1, ref.round ?? 1)); }
       return summary(c);

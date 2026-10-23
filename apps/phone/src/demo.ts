@@ -17,7 +17,7 @@ import type {
   YouState,
 } from '@accomplice/protocol';
 import type { Transport, TransportHandlers } from './net';
-import type { CaseX, ClueX, SuspectX } from './types';
+import { shortName, type CaseX, type ClueX, type SuspectX } from './types';
 
 interface DemoProposal { id: string; by: string; byName: string; culprit: string; item?: string; agree: string[]; notYet: string[]; needed: number }
 
@@ -216,6 +216,36 @@ export async function loadDemoData(): Promise<DemoData> {
   }
 }
 
+/** The TV demo's table and ledger (apps/tv-web/src/net/demoCase.ts), so every screenshot shows the same evening. */
+const DEMO_TABLE: Pick<Player, 'id' | 'name' | 'avatar'>[] = [
+  { id: 'p-priya', name: 'Priya', avatar: 'fox' },
+  { id: 'p-marcus', name: 'Marcus', avatar: 'owl' },
+  { id: 'p-ana', name: 'Ana', avatar: 'cat' },
+  { id: 'p-theo', name: 'Theo', avatar: 'hare' },
+  { id: 'p-june', name: 'June', avatar: 'badger' },
+];
+const DEMO_SCORES: Record<string, number> = { Priya: 1250, Ana: 980, Marcus: 820, June: 610, Theo: 450 };
+
+/** Who this phone is in the demo: Priya, or June (the TV demo's Accomplice) when showing the Accomplice's side. */
+export function demoMe(as: 'detective' | 'accomplice' = demoParams().as): { name: string; avatar: string } {
+  const p = DEMO_TABLE.find((x) => x.name === (as === 'accomplice' ? 'June' : 'Priya'))!;
+  return { name: p.name, avatar: p.avatar };
+}
+
+/** The same front page the TV demo prints (apps/tv-web/src/screens/Reveal.tsx, defaultPaper). */
+function tvFrontPage(D: DemoData, culprit: SuspectX | undefined) {
+  const pub = D.pub as CaseX & { place: string; tone?: string; victim: { name: string }; crime: { what: string } };
+  const town = pub.place.split(',')[0].replace(/^(The)\s+/i, '');
+  const name = culprit ? shortName(culprit) : 'Culprit';
+  return {
+    paperName: `The ${town} Evening Post`,
+    title: pub.tone === 'cozy' ? `${name} Caught With Cake` : `${name} Unmasked`,
+    sub: `${pub.victim.name} ${pub.crime.what}. Amateur detectives crack the case in a single evening.`,
+    date: pub.dateLine,
+    players: [],
+  };
+}
+
 export function demoParams() {
   const q = new URLSearchParams(location.search);
   return {
@@ -234,11 +264,12 @@ export function createDemo(h: TransportHandlers): Transport {
   const later = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms));
   let D: DemoData = fallback;
 
-  const bots: Player[] = [
-    { id: 'p-marta', name: 'Marta', seat: 1, connected: true, avatar: 'fox', questionsLeft: 2 },
-    { id: 'p-theo', name: 'Theo', seat: 2, connected: true, avatar: 'hare', questionsLeft: 2 },
-    { id: 'p-priya', name: 'Priya', seat: 3, connected: false, avatar: 'badger', questionsLeft: 2 },
-  ];
+  // The same table as the TV demo (apps/tv-web/src/net/demoCase.ts): Priya, Marcus, Ana, Theo and June,
+  // with June as the Accomplice. This phone is Priya, or June when showing the Accomplice's side.
+  const me = demoMe(as);
+  const bots: Player[] = DEMO_TABLE.filter((p) => p.name !== me.name).map((p, i) => ({ ...p, seat: i + 1, connected: true, questionsLeft: 2 }));
+  const botId = (name: string) => bots.find((b) => b.name === name)?.id ?? ME;
+  const ACCOMPLICE = as === 'accomplice' ? ME : botId('June');
 
   const room: RoomState = {
     code: new URLSearchParams(location.search).get('room')?.toUpperCase() || 'MOTH',
@@ -313,21 +344,15 @@ export function createDemo(h: TransportHandlers): Transport {
     if (phase === 'reveal' || phase === 'results') {
       room.reveal = {
         culprit: D.culprit,
-        accomplice: 'p-theo',
+        accomplice: ACCOMPLICE,
         item: D.item,
         steps: D.steps,
-        scores: { [ME]: as === 'accomplice' ? 4 : 7, 'p-marta': 5, 'p-theo': 3, 'p-priya': 2 },
-        accompliceCaught: as === 'accomplice' ? false : true,
-        newspaper: {
-          paperName: D.pub.paperName ?? 'The Evening Courier',
-          title: (D.pub as { headline?: { title: string; sub: string } }).headline?.title ?? 'COOK CAUGHT RED-HANDED',
-          sub: ((D.pub as { headline?: { title: string; sub: string } }).headline?.sub ?? 'Sharp-eyed {DETECTIVE} cracks the case before the pudding.').replace('{DETECTIVE}', room.players[0]?.name ?? 'Ada'),
-          date: D.pub.dateLine,
-          players: [],
-        },
+        // the TV demo's ledger, by name
+        scores: Object.fromEntries(room.players.map((p) => [p.id, DEMO_SCORES[p.name] ?? 0])),
+        accompliceCaught: true,
+        newspaper: tvFrontPage(D, (D.pub.suspects as SuspectX[]).find((x) => x.id === D.culprit)),
       };
-      if (as === 'accomplice') room.reveal.accomplice = ME;
-      if (!you.vote) you.vote = { culprit: D.culprit, item: D.item, accomplice: 'p-theo' };
+      if (!you.vote) you.vote = { culprit: D.culprit, item: D.item, accomplice: ACCOMPLICE };
     }
     pushRoom();
     pushYou();
@@ -366,11 +391,11 @@ export function createDemo(h: TransportHandlers): Transport {
 
   const botProposes = () => {
     const other = D.pub.suspects.find((x) => x.id !== D.culprit) ?? D.pub.suspects[0];
-    proposal = { id: `pr${Date.now()}`, by: 'p-marta', byName: 'Marta', culprit: other.id, item: D.pub.items[1]?.id, agree: ['p-marta'], notYet: [], needed: 3 };
+    proposal = { id: `pr${Date.now()}`, by: botId('Marcus'), byName: 'Marcus', culprit: other.id, item: D.pub.items[1]?.id, agree: [botId('Marcus')], notYet: [], needed: 3 };
     sendProposal();
   };
 
-  const house = { id: 'house' as const, name: 'Pemberton', role: 'the butler', portrait: 'portraits/butler.webp' };
+  const house = { id: 'house' as const, name: 'Hobbs', role: 'the butler', portrait: 'portraits/butler.webp' };
 
   // Jump straight to a scene
   const jump = (name: string, avatar: string) => {
@@ -385,7 +410,7 @@ export function createDemo(h: TransportHandlers): Transport {
         later(1800, () => {
           room.players = [...room.players, bots[2]];
           pushRoom();
-          announce('Priya joined the party.');
+          announce(`${bots[2].name} joined the party.`);
         });
         break;
       case 'role':
@@ -402,7 +427,7 @@ export function createDemo(h: TransportHandlers): Transport {
         you.audience = true;
         room.audience = [{ id: ME, name, connected: true }];
         room.players = room.players.filter((p) => p.id !== ME);
-        room.hostId = 'p-marta';
+        room.hostId = botId('Marcus');
         goto('lobby');
         break;
       case 'audience':
@@ -413,7 +438,7 @@ export function createDemo(h: TransportHandlers): Transport {
         later(50, () => {
           const last = room.transcript[room.transcript.length - 1];
           const sid = D.pub.suspects[1].id;
-          say(sid, D.replies[sid]?.[0] ?? 'I was elsewhere.', { askedBy: 'p-theo', question: 'Where were you at half past nine?' });
+          say(sid, D.replies[sid]?.[0] ?? 'I was elsewhere.', { askedBy: botId('Theo'), question: 'Where were you at half past nine?' });
           room.hunch = { utteranceId: room.transcript[room.transcript.length - 1]?.id ?? last?.id ?? 'u', lying: 1, truth: 0, closesAt: Date.now() + 20000 };
           pushRoom();
         });
@@ -423,7 +448,7 @@ export function createDemo(h: TransportHandlers): Transport {
         goto('accuse', 3);
         break;
       case 'accuse-locked':
-        you.vote = { culprit: D.culprit, item: D.item, accomplice: 'p-theo' };
+        you.vote = { culprit: D.culprit, item: D.item, accomplice: ACCOMPLICE };
         goto('accuse', 3);
         room.votes = { count: 3, needed: 4 };
         pushRoom();
@@ -437,7 +462,7 @@ export function createDemo(h: TransportHandlers): Transport {
       default: {
         // investigate and its sub-screens
         you.notes = at === 'notes' ? 'Cook says pantry all night. Who was near the kitchen at 9:30?\nColonel and the doctor: together at ten. Check the earlier times.' : '';
-        say(firstSuspect, D.replies[firstSuspect]?.[0] ?? 'I was elsewhere.', { askedBy: 'p-marta', question: 'Where were you at nine?' });
+        say(firstSuspect, D.replies[firstSuspect]?.[0] ?? 'I was elsewhere.', { askedBy: botId('Marcus'), question: 'Where were you at nine?' });
         goto('investigate', 2);
         if (at === 'investigate') room.speaking = firstSuspect;
         room.players = room.players.map((p) => (p.id === ME ? { ...p, questionsLeft: 1 } : p));
@@ -447,7 +472,7 @@ export function createDemo(h: TransportHandlers): Transport {
         later(150, () => emit({ t: 'event', kind: 'chime', text: "Ten o'clock. Round 2.", hour: 22 }));
         if (at === 'heartbeat') later(400, () => emit({ t: 'haptic', pattern: 'heartbeat' }));
         if (at === 'emergency' || at === 'free-question') {
-          room.emergency = { stage: 'vote', closesAt: Date.now() + 30000, votes: { [D.pub.suspects[1].id]: 1 }, voters: ['p-marta'] };
+          room.emergency = { stage: 'vote', closesAt: Date.now() + 30000, votes: { [D.pub.suspects[1].id]: 1 }, voters: [botId('Marcus')] };
           if (at === 'free-question') room.emergency = { ...room.emergency, stage: 'ask', suspectId: D.pub.suspects[1].id, askedBy: ME };
           pushRoom();
         }
@@ -559,7 +584,7 @@ export function createDemo(h: TransportHandlers): Transport {
         sendProposal();
         later(1400, () => {
           if (!proposal) return;
-          proposal.agree.push('p-marta', 'p-theo');
+          proposal.agree.push(botId('Marcus'), botId('Theo'));
           sendVotes();
           later(1400, () => proposal && rule(proposal));
         });
@@ -572,7 +597,7 @@ export function createDemo(h: TransportHandlers): Transport {
         later(1200, () => {
           if (!proposal) return;
           if (msg.agree) {
-            proposal.agree.push('p-theo');
+            proposal.agree.push(botId('Theo'));
             sendVotes();
             later(1400, () => proposal && rule(proposal));
           } else {

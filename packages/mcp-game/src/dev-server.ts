@@ -9,7 +9,7 @@ import type { GameApi } from './types.ts';
 const games = new Map<string, GameApi>();
 const mcp = createMcpHandler((household) => {
   let g = games.get(household);
-  if (!g) { g = createFakeGameApi({ stepMs: 700 }); games.set(household, g); }
+  if (!g) { g = createFakeGameApi({ stepMs: 700, caseSet: process.env.FAKE_CASE === 'demo' ? 'demo' : 'default' }); games.set(household, g); }
   return g;
 });
 

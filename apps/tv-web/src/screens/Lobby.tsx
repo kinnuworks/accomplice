@@ -94,7 +94,7 @@ export function Lobby() {
         </div>
         <div className="join-text">
           <p className="join-step"><span className="step-num">1</span><span>Scan with your phone camera</span></p>
-          {shown && <p className="join-step"><span className="step-num">2</span><span className="join-step-text">Or open <b className={`join-url ${shown.length > 30 ? 'is-long' : ''}`}><BreakableUrl text={shown} /></b></span></p>}
+          {shown && <p className="join-step"><span className="step-num">2</span><span className="join-step-text">Or type this address<span className="join-url"><BreakableUrl text={shown} /></span></span></p>}
           <p className="join-step"><span className="step-num">{shown ? 3 : 2}</span><span>Enter this room code</span></p>
         </div>
         <div className="room-code" aria-label={`Room code ${code?.split('').join(' ') ?? 'loading'}`}>

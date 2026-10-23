@@ -23,7 +23,7 @@ const BOARD_W = 1144, BOARD_H = 590, PAD = 24, GUT = 24;
 const CARD_W = (BOARD_W - PAD * 2 - GUT * 2) / 3;
 const CARD_H = (BOARD_H - PAD * 2 - GUT) / 2;
 const slotPos = (i: number) => [PAD + (i % 3) * (CARD_W + GUT), PAD + Math.floor(i / 3) % 2 * (CARD_H + GUT)];
-const pinOf = (i: number) => { const [x, y] = slotPos(i); return { x: x + CARD_W / 2, y: y + 14 }; };
+const pinOf = (i: number) => { const [x, y] = slotPos(i); return { x: x + CARD_W / 2, y: y - 10 }; }; // the pin head, just above the card's top edge
 
 function stringPath(a: { x: number; y: number }, b: { x: number; y: number }): string {
   const dist = Math.hypot(b.x - a.x, b.y - a.y);

@@ -1,4 +1,5 @@
 // Screenshots of the Strands house host handling free-form speech (needs /api/host and a model key on the server).
+// Plays Ashby Hall, like the TV and phone demos: run the add-on with FAKE_CASE=demo.
 //   node screenshots/agent.mjs [baseUrl]
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
@@ -15,9 +16,9 @@ const turnDone = async (n) => page.getByText(/ms on the device/).nth(n - 1).wait
 await page.goto(`${base}?mute=1&household=agent-${Date.now().toString(36)}`);
 await page.getByText(/add-on connected/).waitFor({ timeout: 15_000 });
 await say('start a new case');
-await page.frameLocator('iframe.app-frame').getByText('Marlow House').first().waitFor({ timeout: 20_000 });
+await page.frameLocator('iframe.app-frame').getByText('Ashby Hall').first().waitFor({ timeout: 20_000 });
 
-await say('who was near the kitchen around nine?');
+await say('who was near the kitchen around half past nine?');
 await turnDone(1);
 await page.getByRole('tab', { name: 'Strands agent' }).click();
 await page.waitForTimeout(800);

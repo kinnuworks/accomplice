@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type React from 'react';
 import type { ClientToServer, Player, RoomState, ServerToClient, YouState } from '@accomplice/protocol';
 import { connectSocket, type ConnStatus, type Transport } from './net';
-import { createDemo, demoParams } from './demo';
+import { createDemo, demoMe, demoParams } from './demo';
 import { announce } from './announce';
 import { cue, getPrefs, playUrl, setPrefs as storePrefs, speak, stopSpeaking, type Prefs } from './feedback';
 import { clueShort, shortName, type Proposal, type SuspectX } from './types';
@@ -126,7 +126,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [you, setYou] = useState<YouState | null>(null);
   const [profile, setProfile] = useState<Profile | null>(() => {
-    if (demo) return demoParams().at === 'join' ? null : { name: 'Ada', avatar: 'owl' };
+    if (demo) return demoParams().at === 'join' ? null : demoMe();
     const code = initialCode();
     // Coming back to a room you were already in (refresh, phone slept): rejoin quietly.
     return code && store.get<boolean>(`accomplice:joined:${code}`) ? store.get<Profile>('accomplice:profile') : null;

@@ -175,4 +175,4 @@ function findSuspect(fragment: string, suspects: { id: string; name: string; rol
 }
 
 export const HELP_TEXT =
-  'You can say: start a new case, who are the suspects, ask the cook where she was at nine, examine the boot prints, give me a hint, I accuse the gardener, how are we doing, let’s finish last night’s case, or continue on the TV.';
+  'You can say: start a new case, who are the suspects, ask the cook where she was at half past nine, examine the croquet mallet, give me a hint, I accuse the colonel, how are we doing, let’s finish last night’s case, or continue on the TV.';
