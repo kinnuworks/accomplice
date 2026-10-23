@@ -205,7 +205,7 @@ export function Reveal() {
               <h2 className="np-name">{paper.paperName}</h2>
               <span className="np-meta">{paper.price ?? 'Extra! Extra!'}</span>
             </header>
-            <h1 className="np-headline">{paper.headline}</h1>
+            <h1 className={`np-headline ${paper.headline.length > 22 ? 'is-long' : ''}`}>{paper.headline}</h1>
             <div className="np-body">
               {culprit && <figure className="np-photo"><Portrait suspect={culprit} /><figcaption>{culprit.name}, {culprit.role}</figcaption></figure>}
               <div className="np-copy">

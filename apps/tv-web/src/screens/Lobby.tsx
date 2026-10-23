@@ -21,6 +21,13 @@ function shortJoin(url: string | null): string | null {
   } catch { return null; }
 }
 
+/** The join address with line-break chances after each dot and before each slash (hyphens already allow one),
+ *  so a long tunnel host wraps between its parts instead of running off the card or splitting a word. */
+function BreakableUrl({ text }: { text: string }) {
+  const parts = text.split(/(?<=\.)|(?=\/)/);
+  return <>{parts.map((p, i) => <span key={i}>{i > 0 && <wbr />}{p}</span>)}</>;
+}
+
 export function Lobby() {
   const code = useTv((s) => s.code ?? s.room?.code ?? null);
   const joinUrl = useTv((s) => s.joinUrl);
@@ -87,7 +94,7 @@ export function Lobby() {
         </div>
         <div className="join-text">
           <p className="join-step"><span className="step-num">1</span><span>Scan with your phone camera</span></p>
-          {shown && <p className="join-step"><span className="step-num">2</span><span>Or open <b className="join-url">{shown}</b></span></p>}
+          {shown && <p className="join-step"><span className="step-num">2</span><span className="join-step-text">Or open <b className={`join-url ${shown.length > 30 ? 'is-long' : ''}`}><BreakableUrl text={shown} /></b></span></p>}
           <p className="join-step"><span className="step-num">{shown ? 3 : 2}</span><span>Enter this room code</span></p>
         </div>
         <div className="room-code" aria-label={`Room code ${code?.split('').join(' ') ?? 'loading'}`}>

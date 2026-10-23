@@ -24,6 +24,7 @@ const LABEL: Record<string, string> = {
   'notifications/tasks/status': 'task',
   'notifications/progress': 'progress',
   'host/turn': 'strands agent',
+  'agent/start': 'strands agent',
   'agent/tool_call': 'strands agent',
   'agent/tool_result': 'strands agent',
   'agent/done': 'strands agent',

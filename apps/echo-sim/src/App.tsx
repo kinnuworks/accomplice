@@ -206,7 +206,9 @@ export function App() {
     try {
       for await (const ev of askHost(text, HOUSEHOLD)) {
         if (ev.type === 'start') {
-          conn.log.note('agent', 'in', 'agent/start', 'notification', ev, `Strands agent, model ${ev.model}`);
+          // product UI never names the model or its vendor: log the agent start without the model id
+          const { model: _model, ...started } = ev;
+          conn.log.note('agent', 'in', 'agent/start', 'notification', started, 'Strands agent started (language model on the server)');
         } else if (ev.type === 'tool') {
           const meta = uiMetaOf(conn.tool(ev.name)?._meta);
           setStatusLine(meta.invoking ?? 'Working on it...');
