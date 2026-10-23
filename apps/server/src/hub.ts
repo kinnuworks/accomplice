@@ -20,7 +20,11 @@ const BLOCK = new Set(['DAMN', 'DUMB', 'FUCK', 'SHIT', 'CUNT', 'DICK', 'COCK', '
 
 export interface SocketLike { send(data: string): void; close(): void; readyState: number; on(ev: string, fn: (...a: any[]) => void): void; ping?(): void; terminate?(): void }
 
-export const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS ?? 10_000);
+/** Ping cadence. A phone silent for HEARTBEAT_AWAY_MS shows as away (seat kept, votes stop waiting on it);
+ *  silent for HEARTBEAT_DROP_MS its socket is closed and it rejoins by id when it comes back. */
+export const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS ?? 2_500);
+export const HEARTBEAT_AWAY_MS = Number(process.env.HEARTBEAT_AWAY_MS ?? HEARTBEAT_MS * 2.4);
+export const HEARTBEAT_DROP_MS = Number(process.env.HEARTBEAT_DROP_MS ?? HEARTBEAT_MS * 12);
 
 export class Hub {
   rooms = new Map<string, Room>();
@@ -30,6 +34,8 @@ export class Hub {
   snapshots: SnapshotStore | null = storeEnabled() ? dynamoSnapshots : null;
   private restoring = new Map<string, Promise<Room | undefined>>();
   private saveTimers = new Map<string, NodeJS.Timeout>();
+  /** Heartbeat timings for new sockets (tests shorten them). */
+  heartbeat = { everyMs: HEARTBEAT_MS, awayMs: HEARTBEAT_AWAY_MS, dropMs: HEARTBEAT_DROP_MS };
 
   async init() {
     this.engine = await loadEngine();
@@ -133,8 +139,8 @@ export class Hub {
     })().catch(() => {});
 
     ws.on('message', async (data: unknown) => {
+      alive(); // any message proves the phone is there
       await ready;
-      missed = 0; // any message proves the phone is there
       let msg: ClientToServer;
       try { msg = JSON.parse(String(data)); } catch { return send({ t: 'error', message: 'Bad message.' }); }
       try {
@@ -144,16 +150,30 @@ export class Hub {
         else { log.error('handler error', e); send({ t: 'error', message: 'Something went wrong on our side. Try that again.' }); }
       }
     });
-    // Heartbeat: ping every 10 s; two missed pongs and the socket is dropped, so the player shows as away
-    // and votes stop waiting on them. Their phone reconnects and rejoins by id.
-    let missed = 0;
-    const alive = () => { missed = 0; };
+    // Heartbeat: ping every HEARTBEAT_MS. A phone that has said nothing (no pong, no message) for HEARTBEAT_AWAY_MS
+    // shows as away, so votes stop waiting on it, but keeps its socket: a slow phone that answers late is simply
+    // back. Only after HEARTBEAT_DROP_MS is the socket closed; the phone reconnects and rejoins by id.
+    const hb = this.heartbeat;
+    let lastSeen = Date.now();
+    function alive() {
+      lastSeen = Date.now();
+      if (client.away) {
+        client.away = false;
+        if (room && client.playerId) room.setPresence(client.playerId, true);
+      }
+    }
     ws.on('pong', alive);
     const beat = setInterval(() => {
-      if (missed >= 2) { clearInterval(beat); try { ws.terminate ? ws.terminate() : ws.close(); } catch { /* gone */ } return; }
-      missed++;
+      const quiet = Date.now() - lastSeen;
+      if (quiet >= hb.dropMs) { clearInterval(beat); try { ws.terminate ? ws.terminate() : ws.close(); } catch { /* gone */ } return; }
+      if (quiet >= hb.awayMs && !client.away && role === 'phone') {
+        client.away = true;
+        const pid = client.playerId;
+        // Away only if no other live socket speaks for the same player (a second tab, a fresh reconnect).
+        if (room && pid && ![...room.clients].some((x) => x !== client && x.playerId === pid && !x.away)) room.setPresence(pid, false);
+      }
       try { ws.ping?.(); } catch { /* closed */ }
-    }, HEARTBEAT_MS);
+    }, hb.everyMs);
     beat.unref?.();
     ws.on('close', () => { clearInterval(beat); room?.detach(client); });
     ws.on('error', () => { /* close follows */ });

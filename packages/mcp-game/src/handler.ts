@@ -33,6 +33,8 @@ export interface McpHandlerOptions {
   records?: RecordStore;
   /** Narrator voice for spoken lines, used when the game itself has no narrate(). */
   narrate?: (text: string) => Promise<{ audioUrl?: string }> | { audioUrl?: string };
+  /** How long a result may wait for a narrator clip before going out without one (default 300 ms). */
+  narrationWaitMs?: number;
 }
 
 export type McpHttpHandler = ((req: IncomingMessage, res: ServerResponse, parsedBody?: unknown) => Promise<void>) & {
@@ -144,7 +146,7 @@ export function createMcpHandler(game: GameApiSource | RoomGameApi, options: Mcp
       const publicBaseUrl = baseUrlOf(req);
 
       if (req.method === 'POST' && isInitializeRequest(body)) {
-        const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl, records, updateRecord, narrate: options.narrate });
+        const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl, records, updateRecord, narrate: options.narrate, narrationWaitMs: options.narrationWaitMs });
         const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           // Plain JSON replies instead of SSE when a proxy cannot stream (Cloudflare quick tunnels).
@@ -164,7 +166,7 @@ export function createMcpHandler(game: GameApiSource | RoomGameApi, options: Mcp
       }
 
       // Stateless: one server for this one request.
-      const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl, records, updateRecord, narrate: options.narrate });
+      const server = buildServer({ source: gameApi, household, taskStore, publicBaseUrl, records, updateRecord, narrate: options.narrate, narrationWaitMs: options.narrationWaitMs });
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       res.on('close', () => { void transport.close().catch(() => {}); void server.close().catch(() => {}); });
       await server.connect(transport);

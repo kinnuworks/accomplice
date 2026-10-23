@@ -19,7 +19,7 @@ import type { Claim, Fact, ObjectionResult } from '@accomplice/protocol';
 
 export class GameError extends Error {}
 
-export interface Client { send(msg: ServerToClient): void; role: 'tv' | 'phone' | 'api'; playerId?: string }
+export interface Client { send(msg: ServerToClient): void; role: 'tv' | 'phone' | 'api'; playerId?: string; /** Missed heartbeats: socket still open, player shown as away. */ away?: boolean }
 
 interface PlayerPriv {
   role: Role | null;
@@ -136,10 +136,10 @@ export class Room {
   prerender(c: Case) {
     const t0 = Date.now();
     const jobs: Promise<unknown>[] = [];
-    for (const s of c.suspects) for (const line of [...fillersFor(s), ...deflectionsFor(s.id)]) jobs.push(speak(line, s.voiceId, 'fast'));
+    for (const s of c.suspects) for (const line of [...fillersFor(s), ...deflectionsFor(s.id)]) jobs.push(speak(line, s.voiceId, 'fast', { background: true }));
     const lines = [...this.briefingLines(c), ...this.tutorialLines(c), this.blackoutText(c), EMERGENCY_TEXT, this.roundText(c, 1), this.roundText(c, 2), this.roundText(c, 3), this.accuseText(false), this.accuseText(true), REVEAL_INTRO, ...this.engine.proofChain(c).map((st) => st.therefore), this.unmaskText(c)];
-    for (const l of lines) for (const chunk of twoSentenceChunks(l)) jobs.push(narrate(chunk, 'narrator'));
-    jobs.push(narrate(this.joinSpeech(), 'narrator'));
+    for (const l of lines) for (const chunk of twoSentenceChunks(l)) jobs.push(narrate(chunk, 'narrator', { background: true }));
+    jobs.push(narrate(this.joinSpeech(), 'narrator', { background: true }));
     void Promise.allSettled(jobs).then(() => this.timing('prerender', Date.now() - t0, { lines: jobs.length }));
   }
 
@@ -215,16 +215,37 @@ export class Room {
 
   detach(c: Client) {
     this.clients.delete(c);
-    if (c.playerId && ![...this.clients].some((x) => x.playerId === c.playerId)) {
-      const p = this.player(c.playerId);
-      if (p) p.connected = false;
-      const a = this.audience.find((x) => x.id === c.playerId);
-      if (a) a.connected = false;
-      if (this.phase === 'lobby' && this.hostId === c.playerId) {
-        this.hostId = this.players.find((x) => x.connected)?.id ?? this.hostId;
-      }
-      this.changed();
+    if (c.playerId && ![...this.clients].some((x) => x.playerId === c.playerId && !x.away)) this.setPresence(c.playerId, false);
+  }
+
+  /**
+   * A phone went quiet (heartbeat) or came back. An away player still holds their seat, but votes stop
+   * waiting on them, so anything that was only waiting for them resolves now.
+   */
+  setPresence(playerId: string, connected: boolean) {
+    const p = this.player(playerId);
+    const a = this.audience.find((x) => x.id === playerId);
+    if (!p && !a) return;
+    if ((p?.connected ?? a?.connected) === connected) return;
+    if (p) p.connected = connected;
+    if (a) a.connected = connected;
+    if (!connected && this.phase === 'lobby' && this.hostId === playerId) {
+      this.hostId = this.players.find((x) => x.connected)?.id ?? this.hostId;
     }
+    this.changed();
+    if (!connected) this.recheckVotes();
+  }
+
+  /** Called when someone leaves: close any vote that now has every ballot it is waiting for. */
+  private recheckVotes() {
+    if (this.phase === 'accuse') {
+      const { count, needed } = this.voteCount();
+      if (count > 0 && count >= needed) void this.finishReveal();
+    }
+    const e = this.emergency;
+    if (e && e.stage === 'vote' && e.ballots.size > 0 && e.ballots.size >= this.players.filter((p) => p.connected).length) this.closeEmergencyVote();
+    const pr = this.proposal;
+    if (pr && !pr.settled && pr.agree.size >= this.proposalNeeded()) void this.settleProposal(pr.id);
   }
 
   player(id: string) { return this.players.find((p) => p.id === id); }
@@ -283,7 +304,7 @@ export class Room {
 
   // ---------- phases ----------
 
-  async start(by: string | 'tv' | 'api', opts: { tone?: Tone; seed?: number } = {}) {
+  async start(by: string | 'tv' | 'api', opts: { tone?: Tone; seed?: number; waitForNarration?: boolean } = {}) {
     if (by !== 'tv' && by !== 'api' && !this.isHost(by)) throw new GameError('Only the host can start the game.');
     if (this.phase !== 'lobby') throw new GameError('The game is already under way.');
     if (by !== 'api' && this.players.length < cfg.minPlayers) throw new GameError(`You need at least ${cfg.minPlayers} players to begin.`);
@@ -328,7 +349,8 @@ export class Room {
           }
         });
       });
-      await sent;
+      // Voice front ends only need the case; the briefing keeps playing on any TV in the room.
+      if (opts.waitForNarration !== false) await sent; else sent.catch(() => {});
     } finally {
       this.starting = false;
     }
@@ -350,11 +372,11 @@ export class Room {
     void c;
   }
 
-  async next(by: string | 'tv' | 'api') {
+  async next(by: string | 'tv' | 'api', opts: { skipTutorial?: boolean } = {}) {
     if (by !== 'tv' && by !== 'api' && !this.isHost(by)) throw new GameError('Only the host can move the game on.');
     switch (this.phase) {
       case 'lobby': return this.start(by);
-      case 'briefing': return cfg.tutorial ? this.beginTutorial() : this.beginRound(1);
+      case 'briefing': return cfg.tutorial && !opts.skipTutorial ? this.beginTutorial() : this.beginRound(1);
       case 'tutorial': return this.beginRound(1);
       case 'investigate':
         if (this.round < 3) return this.beginRound((this.round + 1) as 2 | 3);
@@ -614,7 +636,7 @@ export class Room {
     this.changed();
     // Voice the culprit's confession now, so the reveal can play it without a pause.
     const culprit = this.case!.suspects.find((s) => s.id === this.case!.truth.culprit)!;
-    for (const line of this.case!.confession ?? []) void speak(line, culprit.voiceId, 'fast').catch(() => {});
+    for (const line of this.case!.confession ?? []) void speak(line, culprit.voiceId, 'fast', { background: true }).catch(() => {});
     this.armRoundTimer();
     await this.announce(this.accuseText(!!this.accompliceId));
   }
@@ -882,8 +904,14 @@ export class Room {
 
   // ---------- questions ----------
 
-  ask(pid: string, suspectId: string, text: string, via: 'voice' | 'typed' | 'api'): Promise<Utterance> {
+  ask(pid: string, suspectId: string, text: string, via: 'voice' | 'typed' | 'api', opts: { early?: boolean } = {}): Promise<Utterance> {
     const c = this.case;
+    // A voice assistant asking a real suspect means the investigation has begun: never hand its question to
+    // the practice character (it would answer as the butler under the suspect's name).
+    if (via === 'api' && this.phase === 'tutorial' && c?.suspects.some((s) => s.id === suspectId)) {
+      if (this.phaseTimer) { clearTimeout(this.phaseTimer); this.phaseTimer = null; }
+      void this.beginRound(1).catch(() => {});
+    }
     const tutorial = this.phase === 'tutorial';
     if ((this.phase !== 'investigate' && !tutorial) || !c) throw new GameError('Questions open once the first round begins.');
     if (tutorial) {
@@ -923,7 +951,26 @@ export class Room {
     this.queue.push(item);
     this.changed();
     void this.processQueue();
-    return done;
+    return opts.early ? this.checkedText(item, done) : done;
+  }
+
+  /**
+   * The answer as soon as every sentence has passed the claim check, without waiting for its voice or its turn
+   * in the queue (the room still plays it in order). Audio urls are included only when already rendered.
+   */
+  private async checkedText(item: QueueItem, done: Promise<Utterance>): Promise<Utterance> {
+    const live = item.live;
+    while (!live.done) await live.wait();
+    const suspect = this.speakerFor(item.suspectId);
+    const texts = live.parts.length ? live.parts.map((p) => p.text) : [deflectionsFor(suspect.id)[0]];
+    void done; // the queue still voices it (the same stand-in line when nothing passed)
+    const ready = await Promise.all(live.parts.map((p) => Promise.race([p.speech.catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 0))])));
+    const parts = texts.map((text, i) => ({ id: `${item.id}:${i}`, text, audioUrl: ready[i]?.audioUrl, marks: ready[i]?.marks, durationMs: ready[i]?.durationMs }));
+    const single = parts.length === 1 ? parts[0] : undefined;
+    return {
+      id: item.id, speaker: suspect.id, speakerName: suspect.name, text: texts.join(' '), at: Date.now(),
+      question: live.english ?? item.text, parts, partial: false, audioUrl: single?.audioUrl, marks: single?.marks,
+    };
   }
 
   private async processQueue() {
@@ -1198,7 +1245,7 @@ export class Room {
 
   /** Make each player's "read my clues" audio ahead of time so the button answers fast. */
   private prewarmClueAudio() {
-    for (const p of this.players) void narrate(this.cluesText(p.id), 'fast').catch(() => {});
+    for (const p of this.players) void narrate(this.cluesText(p.id), 'fast', { background: true }).catch(() => {});
   }
 
   setNotes(pid: string, text: string) {

@@ -81,3 +81,57 @@ describe('GameApi hint and narrate', () => {
     expect(n.captionChunks).toEqual(['Good evening, detectives.']);
   });
 });
+
+describe('GameApi for voice turns (MCP)', () => {
+  it('skips the practice question: the first listed suspect answers in their own name, never the house character', async () => {
+    const { cfg } = await import('../src/config.js');
+    const was = cfg.tutorial; cfg.tutorial = true;
+    try {
+      const { api } = built;
+      const { code } = api.createRoom({ tone: 'classic', seed: 11 });
+      await api.startCase(code);
+      expect(api.state(code).phase).toBe('investigate');
+      const first = api.listSuspects(code)[0];
+      const u = await api.ask(code, first.id, 'Where were you at nine o clock?');
+      expect(u.speaker).toBe(first.id);
+      expect(u.speakerName).toBe(first.name);
+      expect(u.text).not.toMatch(/suspects are the ones to ask|hold the button|only keep the house/i);
+    } finally { cfg.tutorial = was; }
+  });
+
+  it('a question from a voice assistant during a TV practice round opens round one instead of going to the butler', async () => {
+    const { cfg } = await import('../src/config.js');
+    const was = cfg.tutorial; cfg.tutorial = true;
+    try {
+      const { api, hub } = built;
+      const { code } = api.createRoom({ tone: 'classic', seed: 12 });
+      const room = hub.get(code)!;
+      room.join('Ana');
+      await room.start('tv');
+      await room.next('tv');
+      expect(room.phase).toBe('tutorial');
+      const first = api.listSuspects(code)[0];
+      const u = await api.ask(code, first.id, 'Where were you at nine?');
+      expect(room.phase).toBe('investigate');
+      expect(u.speaker).toBe(first.id);
+    } finally { cfg.tutorial = was; }
+  });
+
+  it('returns the checked answer without waiting for the room to finish speaking it', async () => {
+    const { cfg } = await import('../src/config.js');
+    const was = cfg.speechWait; cfg.speechWait = 50; // the room would hold its queue for many seconds per answer
+    try {
+      const { api } = built;
+      const { code } = api.createRoom({ tone: 'classic', seed: 13 });
+      await api.startCase(code);
+      const [a, b] = api.listSuspects(code);
+      const t0 = Date.now();
+      const u1 = await api.ask(code, a.id, 'Where were you at 9:00 pm?');
+      const u2 = await api.ask(code, b.id, 'Where were you at 9:00 pm?'); // queued behind the first in the room
+      expect(Date.now() - t0).toBeLessThan(2000);
+      expect(u1.text.length).toBeGreaterThan(5);
+      expect(u2.speaker).toBe(b.id);
+      expect(u1.partial).toBe(false);
+    } finally { cfg.speechWait = was; }
+  });
+});

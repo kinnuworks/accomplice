@@ -1,0 +1,597 @@
+{
+ "bench-mvk79mjd0": {
+  "household": "bench-mvk79mjd0",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Dr. Edith Marsh": 1,
+   "Miss Priya Malhotra": 1
+  },
+  "lastCase": {
+   "caseId": "sapphire-express-classic-728325819",
+   "title": "Death on the Sapphire Express",
+   "tone": "classic",
+   "roomCode": "NJET",
+   "round": 0,
+   "startedAt": 1792713427582,
+   "updatedAt": 1792713456435,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Dr. Edith Marsh",
+    "Miss Priya Malhotra"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792713427581,
+  "updatedAt": 1792713456435
+ },
+ "bench-mvk7azyu1": {
+  "household": "bench-mvk7azyu1",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Mr. Hobbs": 1,
+   "Isadora Lark": 1
+  },
+  "lastCase": {
+   "caseId": "ashby-hall-classic-265618440",
+   "title": "A Rather Final Dinner at Ashby Hall",
+   "tone": "classic",
+   "roomCode": "QEHS",
+   "round": 0,
+   "startedAt": 1792713463789,
+   "updatedAt": 1792713492937,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Mr. Hobbs",
+    "Isadora Lark"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792713463786,
+  "updatedAt": 1792713492937
+ },
+ "bench-mvk7bs5m2": {
+  "household": "bench-mvk7bs5m2",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Colonel Vikram Chauhan": 1,
+   "Mrs. Bridget Hollis": 1
+  },
+  "lastCase": {
+   "caseId": "marigold-manor-classic-857671598",
+   "title": "The Marigold Manor Mystery",
+   "tone": "classic",
+   "roomCode": "BFYW",
+   "round": 0,
+   "startedAt": 1792713499480,
+   "updatedAt": 1792713529636,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Colonel Vikram Chauhan",
+    "Mrs. Bridget Hollis"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792713499480,
+  "updatedAt": 1792713529636
+ },
+ "bench-mvk7lt6a0": {
+  "household": "bench-mvk7lt6a0",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Mrs. Meena Iyer": 1,
+   "Zoya Mirza": 1
+  },
+  "lastCase": {
+   "caseId": "marigold-manor-classic-607181041",
+   "title": "Murder at Marigold Manor",
+   "tone": "classic",
+   "roomCode": "VWZJ",
+   "round": 1,
+   "startedAt": 1792713962710,
+   "updatedAt": 1792713967806,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Mrs. Meena Iyer",
+    "Zoya Mirza"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792713962710,
+  "updatedAt": 1792713967806
+ },
+ "bench-mvk7lyhq1": {
+  "household": "bench-mvk7lyhq1",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Isadora Lark": 1,
+   "Mr. Venkat Pillai": 1
+  },
+  "lastCase": {
+   "caseId": "marigold-manor-classic-639282000",
+   "title": "The Marigold Manor Mystery",
+   "tone": "classic",
+   "roomCode": "KPKC",
+   "round": 1,
+   "startedAt": 1792713968467,
+   "updatedAt": 1792713971438,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Isadora Lark",
+    "Mr. Venkat Pillai"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792713968467,
+  "updatedAt": 1792713971438
+ },
+ "bench-mvk7m1ao2": {
+  "household": "bench-mvk7m1ao2",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Pippa Quill": 1,
+   "Mrs. Dolly Pargeter": 1
+  },
+  "lastCase": {
+   "caseId": "marigold-manor-classic-569835576",
+   "title": "Murder at Marigold Manor",
+   "tone": "classic",
+   "roomCode": "EGMU",
+   "round": 1,
+   "startedAt": 1792713972600,
+   "updatedAt": 1792713975562,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Pippa Quill",
+    "Mrs. Dolly Pargeter"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792713972600,
+  "updatedAt": 1792713975562
+ },
+ "bench-mvk7nz5n0": {
+  "household": "bench-mvk7nz5n0",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Freddie Bunting": 1,
+   "The Great Fantoni": 1
+  },
+  "lastCase": {
+   "caseId": "ashby-hall-classic-646168890",
+   "title": "The Ashby Hall Affair",
+   "tone": "classic",
+   "roomCode": "YMCF",
+   "round": 1,
+   "startedAt": 1792714063968,
+   "updatedAt": 1792714068239,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Freddie Bunting",
+    "The Great Fantoni"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714063968,
+  "updatedAt": 1792714068239
+ },
+ "bench-mvk7o3yp1": {
+  "household": "bench-mvk7o3yp1",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Colonel Vikram Chauhan": 1,
+   "Silas Thorne": 1
+  },
+  "lastCase": {
+   "caseId": "ashby-hall-classic-627005952",
+   "title": "A Rather Final Dinner at Ashby Hall",
+   "tone": "classic",
+   "roomCode": "JYJW",
+   "round": 1,
+   "startedAt": 1792714068785,
+   "updatedAt": 1792714071386,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Colonel Vikram Chauhan",
+    "Silas Thorne"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714068785,
+  "updatedAt": 1792714071386
+ },
+ "bench-mvk7o6e52": {
+  "household": "bench-mvk7o6e52",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Freddie Bunting": 1,
+   "Miss Cordelia Vane": 1
+  },
+  "lastCase": {
+   "caseId": "sapphire-express-classic-896426748",
+   "title": "A One Way Ticket",
+   "tone": "classic",
+   "roomCode": "KBRJ",
+   "round": 1,
+   "startedAt": 1792714072184,
+   "updatedAt": 1792714074864,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Freddie Bunting",
+    "Miss Cordelia Vane"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714072184,
+  "updatedAt": 1792714074864
+ },
+ "bench-mvk7o93c3": {
+  "household": "bench-mvk7o93c3",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Wilf Banning": 1,
+   "The Great Fantoni": 1
+  },
+  "lastCase": {
+   "caseId": "sapphire-express-classic-294959402",
+   "title": "A One Way Ticket",
+   "tone": "classic",
+   "roomCode": "CWEF",
+   "round": 1,
+   "startedAt": 1792714075695,
+   "updatedAt": 1792714078782,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Wilf Banning",
+    "The Great Fantoni"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714075695,
+  "updatedAt": 1792714078782
+ },
+ "bench-mvk7q5jh0": {
+  "household": "bench-mvk7q5jh0",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Kitty Pemberton": 1,
+   "Silas Thorne": 1
+  },
+  "lastCase": {
+   "caseId": "sapphire-express-classic-399562799",
+   "title": "A One Way Ticket",
+   "tone": "classic",
+   "roomCode": "GTRU",
+   "round": 1,
+   "startedAt": 1792714164977,
+   "updatedAt": 1792714168246,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Kitty Pemberton",
+    "Silas Thorne"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714164977,
+  "updatedAt": 1792714168246
+ },
+ "bench-mvk7q94q1": {
+  "household": "bench-mvk7q94q1",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Silas Thorne": 1,
+   "Mrs. Bridget Hollis": 1
+  },
+  "lastCase": {
+   "caseId": "ashby-hall-classic-623487927",
+   "title": "The Ashby Hall Affair",
+   "tone": "classic",
+   "roomCode": "EQBN",
+   "round": 1,
+   "startedAt": 1792714168678,
+   "updatedAt": 1792714171451,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Silas Thorne",
+    "Mrs. Bridget Hollis"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714168678,
+  "updatedAt": 1792714171451
+ },
+ "bench-mvk7qblo2": {
+  "household": "bench-mvk7qblo2",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Mrs. Meena Iyer": 1,
+   "Lady Imogen Crewe": 1
+  },
+  "lastCase": {
+   "caseId": "ashby-hall-classic-152894188",
+   "title": "The Ashby Hall Affair",
+   "tone": "classic",
+   "roomCode": "GEXD",
+   "round": 1,
+   "startedAt": 1792714171653,
+   "updatedAt": 1792714175000,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Mrs. Meena Iyer",
+    "Lady Imogen Crewe"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714171653,
+  "updatedAt": 1792714175000
+ },
+ "bench-mvk7qec93": {
+  "household": "bench-mvk7qec93",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Zoya Mirza": 1,
+   "Mrs. Lakshmi Rao": 1
+  },
+  "lastCase": {
+   "caseId": "marigold-manor-classic-543071508",
+   "title": "Murder at Marigold Manor",
+   "tone": "classic",
+   "roomCode": "VTBQ",
+   "round": 1,
+   "startedAt": 1792714175182,
+   "updatedAt": 1792714177618,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Zoya Mirza",
+    "Mrs. Lakshmi Rao"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714175182,
+  "updatedAt": 1792714177618
+ },
+ "bench-mvk7vnia0": {
+  "household": "bench-mvk7vnia0",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Letitia Sharpe": 1,
+   "Lady Imogen Crewe": 1
+  },
+  "lastCase": {
+   "caseId": "ashby-hall-classic-238637048",
+   "title": "The Ashby Hall Affair",
+   "tone": "classic",
+   "roomCode": "VDPN",
+   "round": 1,
+   "startedAt": 1792714421143,
+   "updatedAt": 1792714424497,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Letitia Sharpe",
+    "Lady Imogen Crewe"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714421143,
+  "updatedAt": 1792714424497
+ },
+ "bench-mvk7vqur1": {
+  "household": "bench-mvk7vqur1",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Colonel Mortimer Gage": 1,
+   "Mr. Crale": 1
+  },
+  "lastCase": {
+   "caseId": "marigold-manor-classic-755880356",
+   "title": "Monsoon at Marigold Manor",
+   "tone": "classic",
+   "roomCode": "VDMF",
+   "round": 1,
+   "startedAt": 1792714424798,
+   "updatedAt": 1792714427743,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Colonel Mortimer Gage",
+    "Mr. Crale"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714424798,
+  "updatedAt": 1792714427743
+ },
+ "bench-mvk7vtd62": {
+  "household": "bench-mvk7vtd62",
+  "casesStarted": 1,
+  "solved": 0,
+  "wrong": 0,
+  "streak": 0,
+  "bestStreak": 0,
+  "hintsUsed": 0,
+  "questionsAsked": 2,
+  "suspectCounts": {
+   "Colonel Mortimer Gage": 1,
+   "Dr. Anjali Sen": 1
+  },
+  "lastCase": {
+   "caseId": "sapphire-express-classic-922427220",
+   "title": "A One Way Ticket",
+   "tone": "classic",
+   "roomCode": "GUNG",
+   "round": 1,
+   "startedAt": 1792714428175,
+   "updatedAt": 1792714430971,
+   "finished": false,
+   "questionsAsked": 2,
+   "suspectsQuestioned": [
+    "Colonel Mortimer Gage",
+    "Dr. Anjali Sen"
+   ],
+   "hintsUsed": 0
+  },
+  "history": [],
+  "caseOfTheWeek": null,
+  "hint": null,
+  "createdAt": 1792714428175,
+  "updatedAt": 1792714430971
+ }
+}

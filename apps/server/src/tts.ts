@@ -70,30 +70,62 @@ async function client(region: string) {
 
 async function exists(p: string) { try { await stat(p); return true; } catch { return false; } }
 
-// Polly throttles bursts (generative voices especially); a small gate keeps p95 sane.
+// Polly throttles bursts (its neural quota is a few requests per second per region), and a throttled line used to
+// fall through every engine and go silent. Each tier gets a gate with a concurrency cap and a token bucket at
+// POLLY_TPS (fast tier), and two queues: live lines (a suspect's answer, a narrator line about to play) always go before
+// background pre-rendering (fillers, deflections, briefing, clue read-outs).
 const MAX_CONCURRENT = Number(process.env.POLLY_CONCURRENCY ?? 8);
+// Suspect voices (neural, ap-south-1) were seen throttling in bursts; the narrator region has not been, so it is
+// only concurrency-capped unless NARRATOR_POLLY_TPS is set. 0 = no rate cap.
+const TPS: Record<VoiceTier, number> = { fast: Number(process.env.POLLY_TPS ?? 8), narrator: Number(process.env.NARRATOR_POLLY_TPS ?? 0) };
+interface Gate { active: number; tokens: number; refilledAt: number; live: (() => void)[]; background: (() => void)[]; timer: NodeJS.Timeout | null }
+const newGate = (tier: VoiceTier): Gate => ({ active: 0, tokens: TPS[tier], refilledAt: Date.now(), live: [], background: [], timer: null });
 // Separate gates so slow narrator renders in the background never delay a suspect's next line.
-const gates: Record<VoiceTier, { active: number; waiting: (() => void)[] }> = { fast: { active: 0, waiting: [] }, narrator: { active: 0, waiting: [] } };
+const gates: Record<VoiceTier, Gate> = { fast: newGate('fast'), narrator: newGate('narrator') };
 export const pollyStats = { calls: 0, throttled: 0, slow: [] as { voice: string; engine: string; format: string; ms: number; chars: number }[] };
-async function gate<T>(fn: () => Promise<T>, tier: VoiceTier): Promise<T> {
+function pump(tier: VoiceTier) {
   const g = gates[tier];
   const max = tier === 'fast' ? MAX_CONCURRENT : Math.max(2, Math.floor(MAX_CONCURRENT / 2));
-  if (g.active >= max) await new Promise<void>((r) => g.waiting.push(r));
-  g.active++;
-  try { return await fn(); } finally { g.active--; g.waiting.shift()?.(); }
+  const rate = TPS[tier];
+  for (;;) {
+    if (!g.live.length && !g.background.length) return;
+    if (g.active >= max) return; // a finishing call pumps again
+    if (rate > 0) {
+      const now = Date.now();
+      g.tokens = Math.min(rate, g.tokens + ((now - g.refilledAt) / 1000) * rate);
+      g.refilledAt = now;
+      if (g.tokens < 1) {
+        if (!g.timer) { g.timer = setTimeout(() => { g.timer = null; pump(tier); }, Math.ceil(((1 - g.tokens) / rate) * 1000)); g.timer.unref?.(); }
+        return;
+      }
+      g.tokens -= 1;
+    }
+    g.active++;
+    (g.live.shift() ?? g.background.shift())!();
+  }
+}
+async function gate<T>(fn: () => Promise<T>, tier: VoiceTier, background = false): Promise<T> {
+  const g = gates[tier];
+  await new Promise<void>((r) => { (background ? g.background : g.live).push(r); pump(tier); });
+  try { return await fn(); } finally { g.active--; pump(tier); }
 }
 
-async function synth(tier: VoiceTier, voice: string, engine: PollyEngine, ssml: string, format: 'mp3' | 'json'): Promise<Uint8Array> {
+async function synth(tier: VoiceTier, voice: string, engine: PollyEngine, ssml: string, format: 'mp3' | 'json', background = false): Promise<Uint8Array> {
   return gate(async () => {
     const t0 = Date.now();
     try { return await synthNow(TIERS[tier].region(), voice, engine, ssml, format); } finally {
       const ms = Date.now() - t0;
       if (ms > 4000) { pollyStats.slow.push({ voice, engine, format, ms, chars: ssml.length }); if (pollyStats.slow.length > 50) pollyStats.slow.shift(); }
     }
-  }, tier);
+  }, tier, background);
 }
 
 async function synthNow(region: string, voice: string, engine: PollyEngine, ssml: string, format: 'mp3' | 'json'): Promise<Uint8Array> {
+  if (synthOverride) return synthOverride(region, voice, engine, ssml, format);
+  return synthNowImpl(region, voice, engine, ssml, format);
+}
+
+async function synthNowImpl(region: string, voice: string, engine: PollyEngine, ssml: string, format: 'mp3' | 'json'): Promise<Uint8Array> {
   const c = await client(region);
   pollyStats.calls++;
   const res = await c.send(new pollyMod.SynthesizeSpeechCommand({
@@ -130,32 +162,57 @@ function fallbackVoice(voice: string) {
   return FALLBACK_VOICES[h % FALLBACK_VOICES.length];
 }
 
-export async function speak(text: string, voice: string, tier: VoiceTier = 'fast'): Promise<Speech> {
+// Known-good neural voices in each tier's region, used once when a line fails on every engine so it is never silent.
+const FEMALE = new Set(['Olivia', 'Kajal', 'Ruth', 'Amy', 'Joanna', 'Danielle', 'Emma', 'Aria', 'Ayanda', 'Salli', 'Kimberly', 'Kendra', 'Ivy', 'Niamh', 'Jasmin', 'Raveena']);
+export function safeVoice(voice: string, tier: VoiceTier): string {
+  const female = FEMALE.has(voice);
+  if (tier === 'narrator') return process.env.POLLY_SAFE_NARRATOR_VOICE ?? (female ? 'Joanna' : 'Matthew');
+  return female ? process.env.POLLY_SAFE_VOICE_F ?? 'Joanna' : process.env.POLLY_SAFE_VOICE_M ?? 'Matthew';
+}
+
+export interface SpeakOpts { /** Pre-rendering ahead of time: queued behind lines that are about to play. */ background?: boolean }
+
+export async function speak(text: string, voice: string, tier: VoiceTier = 'fast', opts: SpeakOpts = {}): Promise<Speech> {
+  const bg = !!opts.background;
   if (badVoices.has(voice)) voice = fallbackVoice(voice);
   const k = `${tier}|${voice}|${text.trim()}`;
   const hit = memo.get(k);
   if (hit) return { ...hit, cached: true, ms: 0 };
-  let res = await speakWith(text, voice, tier);
+  let res = await speakWith(text, voice, tier, undefined, bg);
   if (!res.audioUrl && res.voiceRejected && !FALLBACK_VOICES.includes(voice)) {
     badVoices.add(voice);
-    res = await speakWith(text, fallbackVoice(voice), tier);
+    res = await speakWith(text, fallbackVoice(voice), tier, undefined, bg);
+  }
+  if (!res.audioUrl && res.synthFailed && !pollyDisabledReason) {
+    // Every engine failed for this line (seen once after a cold start: ValidationException on several voices).
+    // Retry once in a voice known to work on the neural engine in this region rather than go silent.
+    const alt = safeVoice(voice, tier);
+    if (alt !== voice) {
+      const retry = await speakWith(text, alt, tier, ['neural'], bg);
+      log.warn(`Polly: line failed on every engine for ${voice} (${tier}); retried with ${alt}/neural: ${retry.audioUrl ? 'ok' : 'failed too'}`);
+      if (retry.audioUrl) res = retry;
+    }
   }
   if (res.audioUrl) { memo.set(k, res); if (memo.size > 3000) memo.delete(memo.keys().next().value!); }
   return res;
 }
 
-async function speakWith(text: string, voice: string, tier: VoiceTier): Promise<Speech & { voiceRejected?: boolean }> {
+/** Test hook: swap the Polly call (tier, voice, engine, ssml, format) for a fake. */
+export function _setSynthForTests(fn: typeof synthNowImpl | null) { synthOverride = fn; }
+let synthOverride: typeof synthNowImpl | null = null;
+
+async function speakWith(text: string, voice: string, tier: VoiceTier, engines?: PollyEngine[], background = false): Promise<Speech & { voiceRejected?: boolean; synthFailed?: boolean }> {
   const t0 = Date.now();
   const clean = text.trim();
   if (!clean) return { marks: [], durationMs: 0, ms: 0 };
-  if (cfg.ttsProvider !== 'polly' || pollyDisabledReason) return { ...estimateMarks(clean), ms: Date.now() - t0 };
-  const key = `${tier}|${voice}|${clean}`;
+  if ((cfg.ttsProvider !== 'polly' && !synthOverride) || pollyDisabledReason) return { ...estimateMarks(clean), ms: Date.now() - t0 };
+  const key = `${tier}|${voice}|${engines?.join('/') ?? ''}|${clean}`;
   const existing = inflight.get(key);
   if (existing) return existing;
-  const p = (async (): Promise<Speech & { voiceRejected?: boolean }> => {
+  const p = (async (): Promise<Speech & { voiceRejected?: boolean; synthFailed?: boolean }> => {
     await mkdir(cfg.audioDir, { recursive: true });
     const vk = `${tier}|${voice}`;
-    const order = voiceEngine.has(vk) ? [voiceEngine.get(vk)!] : TIERS[tier].engines;
+    const order = engines ?? (voiceEngine.has(vk) ? [voiceEngine.get(vk)!] : TIERS[tier].engines);
     // Disk cache first.
     for (const eng of order) {
       const h = hash(`${voice}|${eng}|${clean}`);
@@ -171,12 +228,14 @@ async function speakWith(text: string, voice: string, tier: VoiceTier): Promise<
     }
     const ssml = toSsml(clean);
     let lastErr: any = null;
-    for (const eng of order) {
+    const errors: { eng: PollyEngine; name: string; message: string }[] = [];
+    for (let i = 0, throttled = 0; i < order.length; i++) {
+      const eng = order[i];
       try {
         const [audio, marksBuf] = await Promise.all([
-          synth(tier, voice, eng, ssml, 'mp3'),
+          synth(tier, voice, eng, ssml, 'mp3', background),
           // Generative voices have no word marks: borrow timings from the neural engine, else estimate.
-          synth(tier, voice, eng === 'generative' ? 'neural' : eng, ssml, 'json').catch(() => null),
+          synth(tier, voice, eng === 'generative' ? 'neural' : eng, ssml, 'json', background).catch(() => null),
         ]);
         voiceEngine.set(vk, eng);
         const audioMs = mp3DurationMs(audio);
@@ -196,17 +255,27 @@ async function speakWith(text: string, voice: string, tier: VoiceTier): Promise<
       } catch (e: any) {
         lastErr = e;
         const name = e?.name ?? '';
+        errors.push({ eng, name, message: String(e?.message ?? '').slice(0, 160) });
         if (/Credential|UnrecognizedClient|InvalidSignature|AccessDenied|ExpiredToken/i.test(name + ' ' + (e?.message ?? ''))) {
           pollyDisabledReason = name || 'credentials';
           log.warn(`Polly unavailable (${pollyDisabledReason}); continuing with captions only`);
           break;
         }
+        // Throttled (bursts at case start): back off and try the same engine again before giving up on it.
+        // Moving on would end in "this voice does not support the selected engine", which hid the real cause.
+        if (/Throttl|TooManyRequests/i.test(name) && throttled < 2) {
+          throttled++; i--;
+          await new Promise((r) => setTimeout(r, 250 * 3 ** (throttled - 1) + Math.random() * 150));
+          continue;
+        }
+        throttled = 0;
         // Engine or voice not supported: try the next engine.
       }
     }
-    if (lastErr && !pollyDisabledReason) log.warn(`Polly failed for voice ${voice}: ${lastErr?.name ?? lastErr}`);
-    const voiceRejected = /voice|VoiceId/i.test(String(lastErr?.message ?? ''));
-    return { ...estimateMarks(clean), ms: Date.now() - t0, voiceRejected };
+    if (lastErr && !pollyDisabledReason) log.warn(`Polly failed for voice ${voice} (${tier}): ${errors.map((x) => `${x.eng}: ${x.name}: ${x.message}`).join(' | ')}`);
+    // Only a voice id Polly does not know marks the voice as bad; "does not support the selected engine" does not.
+    const voiceRejected = errors.length > 0 && errors.every((x) => /Validation/i.test(x.name) && /voice/i.test(x.message) && !/engine/i.test(x.message));
+    return { ...estimateMarks(clean), ms: Date.now() - t0, voiceRejected, synthFailed: !!lastErr };
   })();
   inflight.set(key, p);
   try { return await p; } finally { inflight.delete(key); }
@@ -225,7 +294,7 @@ export function ttsStatus() { return { provider: cfg.ttsProvider, disabled: poll
 let elevenWarned = false;
 
 /** The narrator's voice. ElevenLabs when configured (cached forever on disk), else Polly. */
-export async function narrate(text: string, tier: VoiceTier = 'narrator'): Promise<Speech> {
+export async function narrate(text: string, tier: VoiceTier = 'narrator', opts: SpeakOpts = {}): Promise<Speech> {
   // Default ElevenLabs voice: George (warm British storyteller).
   const key = process.env.ELEVENLABS_API_KEY; const voice = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
   if (cfg.narratorProvider === 'elevenlabs' && key && voice && cfg.ttsProvider !== 'none') {
@@ -235,7 +304,7 @@ export async function narrate(text: string, tier: VoiceTier = 'narrator'): Promi
     });
     if (r) return r;
   }
-  return speak(text, cfg.narratorVoice, tier);
+  return speak(text, cfg.narratorVoice, tier, opts);
 }
 
 async function elevenSpeak(text: string, voice: string, apiKey: string): Promise<Speech> {

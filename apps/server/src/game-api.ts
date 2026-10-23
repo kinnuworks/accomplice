@@ -16,8 +16,11 @@ export interface GameApi {
   /** Generate a verified case and move straight into round one. */
   startCase(code: string, opts?: { tone?: Tone; seed?: number }): Promise<PublicCase>;
   listSuspects(code: string): SuspectInfo[];
-  /** Ask a suspect a question; resolves with the spoken answer (text, audio url, word timings). */
-  ask(code: string, suspectId: string, question: string): Promise<Utterance>;
+  /**
+   * Ask a suspect a question. Resolves as soon as every sentence has passed the claim check (audio urls only when
+   * already rendered); the room still voices and plays the answer in order. { wait: true } resolves after playback.
+   */
+  ask(code: string, suspectId: string, question: string, opts?: { wait?: boolean }): Promise<Utterance>;
   examineClue(code: string, clueId: string): Clue;
   board(code: string): BoardView;
   /** Reveal the next round of clues (or move to accusations after round three). */
@@ -47,8 +50,11 @@ export function createGameApi(hub: Hub): GameApi {
     async startCase(code, opts = {}) {
       const r = room(code);
       if (r.phase !== 'lobby') throw new GameError('A case is already running in that room.');
-      await r.start('api', opts);
-      await r.next('api'); // straight into round one
+      // Voice turns must answer fast: return once the case is built and round one is open. Narration (briefing,
+      // round text) keeps rendering and playing on any TV in the room; the practice question is skipped because
+      // a voice assistant's questions are always for the real suspects.
+      await r.start('api', { ...opts, waitForNarration: false });
+      if ((r.phase as string) === 'briefing') void r.next('api', { skipTutorial: true }).catch(() => {});
       return r.pub!;
     },
     listSuspects(code) {
@@ -56,7 +62,7 @@ export function createGameApi(hub: Hub): GameApi {
       if (!r.case) throw new GameError('No case yet. Start one first.');
       return r.case.suspects.map((s) => ({ id: s.id, name: s.name, role: s.role, motive: s.motive, claimedAlibi: { ...s.alibi } }));
     },
-    ask(code, suspectId, question) { return room(code).ask('api', resolveSuspect(room(code), suspectId), question, 'api'); },
+    ask(code, suspectId, question, opts = {}) { return room(code).ask('api', resolveSuspect(room(code), suspectId), question, 'api', { early: !opts.wait }); },
     examineClue(code, clueId) {
       const r = room(code);
       const c = r.boardClues().find((x) => x.id === clueId);

@@ -453,23 +453,79 @@ describe('pacing and playback', () => {
 });
 
 describe('heartbeat', () => {
-  it('drops a socket that stops answering pings, so the player shows as away', async () => {
-    const { Hub } = await import('../src/hub.js');
-    const hub = await new Hub().init();
-    const room = hub.createRoom();
-    const p = room.join('Quiet');
+  const fakeSocket = () => {
     const handlers: Record<string, ((...a: any[]) => void)[]> = {};
-    let terminated = false;
     const sock = {
-      readyState: 1, send() {}, close() {}, ping() {}, terminate() { terminated = true; (handlers.close ?? []).forEach((f) => f()); },
+      terminated: false, answering: true,
+      readyState: 1, send() {}, close() {},
+      ping() { if (sock.answering) setTimeout(() => (handlers.pong ?? []).forEach((f) => f()), 1); },
+      terminate() { sock.terminated = true; (handlers.close ?? []).forEach((f) => f()); },
       on(ev: string, fn: (...a: any[]) => void) { (handlers[ev] ??= []).push(fn); },
     };
+    return sock;
+  };
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it('shows a silent phone as away quickly, keeps its seat and socket, and brings a late answer straight back', async () => {
+    const { Hub } = await import('../src/hub.js');
+    const hub = await new Hub().init();
+    hub.heartbeat = { everyMs: 20, awayMs: 70, dropMs: 400 };
+    const room = hub.createRoom();
+    const p = room.join('Quiet');
+    const sock = fakeSocket();
     hub.connect(sock, { role: 'phone', room: room.code, pid: p.id });
-    await new Promise((r) => setTimeout(r, 30));
+    await wait(150);
+    expect(room.player(p.id)!.connected).toBe(true); // answering pings: present
+    sock.answering = false;
+    await wait(140);
+    expect(room.player(p.id)!.connected).toBe(false); // away within a few beats
+    expect(sock.terminated).toBe(false); // but not kicked
+    sock.answering = true; // slow but alive: the next pong brings it back
+    await wait(60);
     expect(room.player(p.id)!.connected).toBe(true);
-    await new Promise((r) => setTimeout(r, 120));
-    expect(terminated).toBe(true);
+    expect(room.players).toHaveLength(1);
+    sock.answering = false;
+    await wait(500);
+    expect(sock.terminated).toBe(true); // gone for good: the socket is closed
     expect(room.player(p.id)!.connected).toBe(false);
     hub.close();
+  });
+});
+
+describe('players who leave do not block votes', () => {
+  async function toAccuse(n: number) {
+    const { room, tv, phones } = await makeRoom(n);
+    await room.start(phones[0].playerId!);
+    await room.next('tv'); await room.next('tv'); await room.next('tv'); await room.next('tv');
+    expect(room.phase).toBe('accuse');
+    return { room, tv, phones };
+  }
+
+  it('reveals once everyone still here has voted, when the last holdout leaves', async () => {
+    const { room, phones } = await toAccuse(3);
+    const c = room.case!;
+    room.vote(phones[0].playerId!, { culprit: c.suspects[0].id });
+    room.vote(phones[1].playerId!, { culprit: c.suspects[1].id });
+    expect(room.phase).toBe('accuse');
+    room.detach(phones[2]); // closes the app for good
+    await tick();
+    expect(room.phase).toBe('reveal');
+  });
+
+  it('a holdout that goes quiet (away) also stops blocking the vote', async () => {
+    const { room, phones } = await toAccuse(3);
+    const c = room.case!;
+    room.vote(phones[0].playerId!, { culprit: c.suspects[0].id });
+    room.vote(phones[1].playerId!, { culprit: c.suspects[0].id });
+    room.setPresence(phones[2].playerId!, false);
+    await tick();
+    expect(room.phase).toBe('reveal');
+  });
+
+  it('does not reveal when everyone leaves before anyone votes', async () => {
+    const { room, phones } = await toAccuse(2);
+    for (const ph of phones) room.detach(ph);
+    await tick();
+    expect(room.phase).toBe('accuse');
   });
 });

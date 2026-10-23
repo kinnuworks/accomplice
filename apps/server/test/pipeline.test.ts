@@ -155,3 +155,42 @@ describe('newspaper credit', () => {
     expect(buildNewspaper(c, { players: [], detective: 'B', accompliceWon: false }).sub).toContain('B');
   });
 });
+
+describe('voice synthesis fallback', () => {
+  it('retries a line that fails on every engine once in a known-good neural voice, instead of going silent', async () => {
+    const tts = await import('../src/tts.js');
+    const calls: string[] = [];
+    tts._setSynthForTests(async (_region, voice, engine, _ssml, format) => {
+      calls.push(`${voice}/${engine}/${format}`);
+      if (voice !== 'Joanna' || engine !== 'neural') throw Object.assign(new Error('Unsupported engine for this voice'), { name: 'ValidationException' });
+      return format === 'json' ? new TextEncoder().encode('{"time":0,"type":"word","start":0,"end":5,"value":"Hello"}\n') : new Uint8Array([0xff, 0xfb, 0x90, 0x00]);
+    });
+    try {
+      const sp = await tts.speak(`Hello there ${Date.now()}.`, 'Olivia', 'fast');
+      expect(sp.audioUrl).toMatch(/^\/audio\/.+\.mp3$/);
+      expect(calls.some((c) => c.startsWith('Olivia/'))).toBe(true);
+      expect(calls).toContain('Joanna/neural/mp3');
+      expect(tts.safeVoice('Arthur', 'fast')).toBe('Matthew');
+    } finally { tts._setSynthForTests(null); }
+  });
+});
+
+describe('voice synthesis under throttling', () => {
+  it('backs off and retries the same voice and engine when Polly throttles, and never marks the voice bad', async () => {
+    const tts = await import('../src/tts.js');
+    let throttles = 2;
+    const calls: string[] = [];
+    tts._setSynthForTests(async (_region, voice, engine, _ssml, format) => {
+      calls.push(`${voice}/${engine}/${format}`);
+      if (format === 'mp3' && throttles-- > 0) throw Object.assign(new Error('Rate exceeded'), { name: 'ThrottlingException' });
+      if (engine === 'standard') throw Object.assign(new Error('This voice does not support the selected engine: standard'), { name: 'ValidationException' });
+      return format === 'json' ? new Uint8Array() : new Uint8Array([0xff, 0xfb, 0x90, 0x00]);
+    });
+    try {
+      const sp = await tts.speak(`Rate limited line ${Date.now()}.`, 'Kajal', 'fast');
+      expect(sp.audioUrl).toBeTruthy();
+      expect(calls.filter((c) => c === 'Kajal/neural/mp3')).toHaveLength(3);
+      expect(calls.some((c) => c.startsWith('Joanna') || c.startsWith('Matthew'))).toBe(false);
+    } finally { tts._setSynthForTests(null); }
+  });
+});

@@ -418,3 +418,37 @@ test('the room adapter uses the server hint and narrator when they exist', async
   assert.equal(h.hintsLeft, 2);
   assert.deepEqual(await g.narrate!('hello'), { audioUrl: '/audio/n-5.mp3' });
 });
+
+test('a slow narrator voice never holds up a voice turn: the text goes out now, the clip once it is cached', async () => {
+  const rendered = new Set<string>();
+  const slow = createMcpHandler((hh): GameApi => gameFor(`slow-${hh}`), {
+    records: new MemoryRecordStore(),
+    narrate: async (t) => {
+      if (!rendered.has(t)) { await new Promise((r) => setTimeout(r, 1500)); rendered.add(t); }
+      return { audioUrl: `/audio/slow-${t.length}.mp3` };
+    },
+  });
+  const srv = createServer((req, res) => void slow(req, res));
+  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+  const u = new URL(`http://127.0.0.1:${(srv.address() as AddressInfo).port}/mcp`);
+  const client = new Client({ name: 'slow', version: '1.0.0' });
+  await client.connect(new StreamableHTTPClientTransport(u, { requestInit: { headers: { 'x-household-id': 'hh-slow' } } }));
+  try {
+    await client.callTool({ name: 'start_case', arguments: {} });
+    let t0 = Date.now();
+    const first = await client.callTool({ name: 'case_summary', arguments: {} });
+    assert.ok(Date.now() - t0 < 1000, `case_summary took ${Date.now() - t0} ms`);
+    assert.equal(sc(first).narrationUrl, undefined);
+    assert.ok(sc(first).speech.length > 10);
+    await new Promise((r) => setTimeout(r, 1600)); // it kept rendering in the background
+    t0 = Date.now();
+    const again = await client.callTool({ name: 'case_summary', arguments: {} });
+    assert.match(sc(again).narrationUrl, /\/audio\/slow-\d+\.mp3$/);
+    assert.ok(Date.now() - t0 < 1000);
+  } finally {
+    await client.close();
+    await slow.close();
+    srv.closeAllConnections();
+    await new Promise((r) => srv.close(r));
+  }
+});

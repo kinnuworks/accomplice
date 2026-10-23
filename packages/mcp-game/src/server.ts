@@ -26,6 +26,11 @@ export interface BuildContext {
   narrate?: (text: string) => Promise<{ audioUrl?: string }> | { audioUrl?: string };
   /** Absolute origin used to turn relative portrait/audio paths into full URLs. */
   publicBaseUrl?: string;
+  /**
+   * How long a tool result may wait for the narrator's voice clip. Voice turns must answer fast, so the default is
+   * short: a clip that is not ready (usually a cache miss) is left out, keeps rendering, and is cached for next time.
+   */
+  narrationWaitMs?: number;
 }
 
 // ---------- icons (small inline SVGs, brass on transparent) ----------
@@ -159,16 +164,22 @@ export function buildServer(ctx: BuildContext): McpServer {
   const abs = (u?: string) => absolutize(u, ctx.publicBaseUrl);
   const suspectView = (s: SuspectCard) => ({ ...s, portraitUrl: abs(s.portraitUrl) });
 
-  /** Add the narrator's voice (the same voice as the TV) when the game provides one. Never blocks for long. */
+  /**
+   * Add the narrator's voice (the same voice as the TV) when the game provides one and it is ready almost at once
+   * (cached). Never holds a result for synthesis: the text goes out now, and the device reads it in its own voice.
+   */
   const narrated = async (game: GameApi, result: CallToolResult): Promise<CallToolResult> => {
     const sc = result.structuredContent as Record<string, unknown> | undefined;
     const narrate = game.narrate?.bind(game) ?? ctx.narrate;
     if (!sc || !narrate || sc.audioUrl || typeof sc.speech !== 'string') return result;
     try {
+      const clip = Promise.resolve(narrate(sc.speech));
+      clip.catch(() => {}); // keeps rendering in the background either way
+      let timer: NodeJS.Timeout | undefined;
       const v = await Promise.race([
-        Promise.resolve(narrate(sc.speech)),
-        new Promise<{ audioUrl?: string }>((r) => setTimeout(() => r({}), 8000)),
-      ]);
+        clip,
+        new Promise<{ audioUrl?: string }>((r) => { timer = setTimeout(() => r({}), ctx.narrationWaitMs ?? 300); timer.unref?.(); }),
+      ]).finally(() => clearTimeout(timer));
       if (v?.audioUrl) sc.narrationUrl = abs(v.audioUrl);
     } catch { /* the device reads the text instead */ }
     return result;
