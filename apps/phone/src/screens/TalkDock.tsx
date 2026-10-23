@@ -22,17 +22,27 @@ const PROBLEM_TEXT: Record<VoiceFailure, string> = {
  * space at the end of the page, so nothing can ever be stuck underneath it. When the
  * text is so large that the dock would take over the screen, it stops being pinned.
  */
+// The dock that currently owns --dock-h. When the practice round's dock gives way to the round's dock, the old
+// one's cleanup runs after the new one has measured; only the owner may clear the space, or the page loses its
+// room at the bottom and the last suspect cards end up under the dock.
+let dockOwner: HTMLElement | null = null;
+
 function useDockSpace(): [(el: HTMLElement | null) => void, boolean] {
   const [isStatic, setStatic] = useState(false);
   const obs = useRef<ResizeObserver | null>(null);
+  const mine = useRef<HTMLElement | null>(null);
   const root = document.documentElement;
   const ref = useCallback((el: HTMLElement | null) => {
     obs.current?.disconnect();
     if (!el) {
-      root.style.setProperty('--dock-h', '0px');
+      if (dockOwner === mine.current) { dockOwner = null; root.style.setProperty('--dock-h', '0px'); }
+      mine.current = null;
       return;
     }
+    mine.current = el;
+    dockOwner = el;
     const measure = () => {
+      if (dockOwner !== el) return;
       const h = el.getBoundingClientRect().height;
       const tooBig = h > window.innerHeight * 0.45;
       setStatic(tooBig);
@@ -45,7 +55,7 @@ function useDockSpace(): [(el: HTMLElement | null) => void, boolean] {
   }, []);
   useEffect(() => () => {
     obs.current?.disconnect();
-    root.style.setProperty('--dock-h', '0px');
+    if (dockOwner === null || dockOwner === mine.current) { dockOwner = null; root.style.setProperty('--dock-h', '0px'); }
   }, [root]);
   return [ref, isStatic];
 }

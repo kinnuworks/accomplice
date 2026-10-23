@@ -1,0 +1,17 @@
+{
+  "name": "@accomplice/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "End to end audit harness: plays full games with a TV and phones, captures every phase, runs layout, copy, a11y, audio and timing checks.",
+  "scripts": {
+    "audit": "node src/run.mjs",
+    "audit:quick": "node src/run.mjs --only=main --skip-build",
+    "audit:real": "node src/run.mjs --only=real --real"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "playwright": "1.64.1",
+    "ws": "^8.22.0"
+  }
+}

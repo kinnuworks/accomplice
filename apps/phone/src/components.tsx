@@ -102,7 +102,7 @@ export function ClueCard({ clue, isNew, index }: { clue: Clue; isNew?: boolean; 
         </p>
         <h3 id={h} className="clue__title">
           {clue.title}
-          {isNew && <span className="badge badge--new">New</span>}
+          {isNew && <>{' '}<span className="badge badge--new">New</span></>}
         </h3>
         <p className="clue__text">{clue.text}</p>
       </article>

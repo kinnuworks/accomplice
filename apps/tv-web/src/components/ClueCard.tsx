@@ -33,10 +33,10 @@ interface Props {
 }
 
 export const ClueCard = memo(function ClueCard({ clue, pinned, linkSource, fresh, nav, autofocus, full, onClick, style, className = '', linkedCount = 0, smudged }: Props) {
-  // shrink to fit, never truncate: title 34 -> 28 px, text 30 -> 26 px, then drop the short line
+  // shrink to fit, never truncate: title 34 -> 28 px, text 30 -> 28 px (the 10-foot floor), then drop the short line
   const inner = useRef<HTMLSpanElement>(null);
   const [lvl, setLvl] = useState(0);
-  const LEVELS = [[34, 30], [32, 28], [30, 27], [28, 26], [26, 26], [28, 26, 1]] as const;
+  const LEVELS = [[34, 30], [32, 30], [32, 28], [30, 28], [28, 28], [30, 28, 1], [28, 28, 1]] as const;
   const [fontsTick, setFontsTick] = useState(0);
   useLayoutEffect(() => { setLvl(0); }, [clue.id, clue.title, clue.short, clue.text, full, fontsTick]);
   // fonts arriving late change the measurements; refit once they are in

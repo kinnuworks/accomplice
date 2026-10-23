@@ -65,8 +65,10 @@ export function Briefing() {
   // follow the narrator
   const playing = now?.line.key.match(/^briefing:(\d+)$/);
   const playingIdx = playing ? Number(playing[1]) : -1;
+  // Only ever forward: once OK has skipped ahead (or reached "Let's begin"), a narrator line that is still
+  // queued must not pull the slides back, or the begin button vanishes under the remote.
   useEffect(() => {
-    if (playingIdx >= 0) { heard.current = true; setAt(Math.min(playingIdx, last)); }
+    if (playingIdx >= 0) { heard.current = true; if (!ready) setAt((a) => Math.max(a, Math.min(playingIdx, last))); }
     else if (heard.current && at === last) setReady(true);
   }, [playingIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -98,7 +100,8 @@ export function Briefing() {
   });
 
   if (!c) return <main className="screen briefing-screen" />;
-  const kind = kinds[at];
+  // "Let's begin" lives on the line-up, so the ready state always shows it, however short the briefing
+  const kind: Kind = ready ? 'suspects' : kinds[at];
   const crimeRoom = c.rooms.find((r) => r.id === c.crime.room);
   const crimeSlot = c.slots.find((s) => s.id === c.crime.slot);
   const lit = ready ? c.suspects.map((s) => s.id) : (spot[at] ?? []);

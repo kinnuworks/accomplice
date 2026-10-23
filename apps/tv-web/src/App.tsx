@@ -70,6 +70,9 @@ export function App() {
   useEffect(() => { audio.setBed(BEDS[where] ?? 'ambient'); }, [where]);
 
   useBack(() => setMenu('menu'), !menu, -10);
+  // The server can move on by itself (everyone out of questions, round timer). A move-on confirm left open
+  // from the round before must not fire again and skip a round or close the vote.
+  useEffect(() => { setMenu((m) => (m === 'next' ? null : m)); }, [phase, round]);
   useKeys((k) => { if (k === 'playpause') { playPause(); return true; } return false; }, true, -10);
 
   const host = (tone: Tone) => {

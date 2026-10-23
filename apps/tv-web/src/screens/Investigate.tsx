@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useEventFlag } from '../components/useEventFlag';
 import type { Player, TheoryVerdict } from '@accomplice/protocol';
 import { Avatar } from '../art/Avatar';
@@ -78,13 +78,13 @@ export function Investigate() {
   useEffect(() => { if (SCENE === 'link' && revealed[0]) setTimeout(() => focus.focusById(`clue-${revealed[0].id}`), 120); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (verdict) setChecking(false); }, [verdict]);
   // a new round closes anything left open from the last one
+  const [moveOn, setMoveOn] = useState(false);
   const firstRound = useRef(room.round);
   useEffect(() => {
     if (room.round === firstRound.current) return;
     firstRound.current = room.round;
-    setDismissedAt(Date.now()); setMenuFor(null); setProving(false); setChecking(false); setLinkFrom(null); setDossier(null);
+    setDismissedAt(Date.now()); setMenuFor(null); setProving(false); setChecking(false); setLinkFrom(null); setDossier(null); setMoveOn(false);
   }, [room.round]);
-  const [moveOn, setMoveOn] = useState(false);
   const allAsked = players.length > 0 && players.every((p) => p.questionsLeft === 0 || !p.connected);
   const nextLabel = room.round >= 3 ? 'Time to accuse' : `Move on to round ${room.round + 1}`;
 
@@ -173,6 +173,8 @@ export function Investigate() {
         className="board"
         aria-label="Evidence board"
         data-nav-group
+        // while the spotlight sinks the board, the remote cannot land on a card nobody can see
+        data-nav-off={spotSuspect ? '' : undefined}
         onFocus={(e) => setFocusedClue((e.target as HTMLElement).dataset.clue ?? null)}
         onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedClue(null); }}
       >
@@ -220,9 +222,9 @@ export function Investigate() {
         <span className="board-label hand" aria-hidden="true">Evidence</span>
       </section>
 
-      <aside className={`side-panel ${detail ? 'show-detail' : ''}`} aria-label={detail ? 'Clue detail' : 'The house'}>
+      <aside className={`side-panel ${detail ? 'show-detail' : ''}`} aria-label={detail ? 'Clue detail' : 'The house'} data-nav-off={spotSuspect ? '' : undefined}>
         {detail ? (
-          <div className="clue-detail" key={detail.id}>
+          <ClueDetailFit key={detail.id}>
             <p className="detail-kind"><KindIcon kind={detail.kind} />{KIND_LABEL[detail.kind]} · round {detail.round}</p>
             <h2 className="detail-title">{detail.title}</h2>
             <p className={`detail-text ${detail.text.length > 260 ? 'is-xlong' : detail.text.length > 190 ? 'is-long' : ''}`}>{smudged.includes(detail.id) ? 'Someone spilled ink all over this one. It dries out next round.' : detail.text}</p>
@@ -230,7 +232,7 @@ export function Investigate() {
               {linkFrom ? (linkFrom === detail.id ? 'Press OK to put the string away.' : 'Press OK to tie the string here.')
                 : pinned.includes(detail.id) ? `Pinned${linkCount(detail.id) ? `, tied to ${linkCount(detail.id)}` : ''}. Press OK for string or unpin.` : 'Press OK to pin it to your theory.'}
             </p>
-          </div>
+          </ClueDetailFit>
         ) : (
           <div className="plan-view">
             <h2 className="panel-title">{hasAlibi ? 'Where they say they were' : 'The house'}</h2>
@@ -290,11 +292,17 @@ export function Investigate() {
       {dark && <div className="blackout-fx" role="status" aria-label={event?.text ?? 'The lights went out'}><p>{event?.text}</p></div>}
       {proposal && !showVerdict && <ProposalCard p={proposal} c={c} players={players} />}
 
-      {allAsked && !spotSuspect && !showVerdict && (
+      {allAsked && !spotSuspect && !showVerdict ? (
         <div className="round-cta" role="status">
           <p>Everyone has asked their questions.</p>
           <button className="btn btn-primary" data-nav onClick={() => setMoveOn(true)}>{nextLabel}</button>
         </div>
+      ) : !showVerdict && !checking && (
+        // Always there, quietly: the table can move on before every question is used.
+        <button className="move-on-quiet" data-nav onClick={() => setMoveOn(true)} aria-label={`${nextLabel}. Questions not asked yet are lost.`}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12M12 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          {nextLabel}
+        </button>
       )}
       {moveOn && (
         <Confirm
@@ -496,4 +504,15 @@ function ProveDialog({ c, pinnedCount, onCancel, onProve }: { c: TvCase; pinnedC
       )}
     </Dialog>
   );
+}
+
+/** The clue detail never truncates and never drops below 28 px: long clues tighten the title and spacing until they fit. */
+function ClueDetailFit({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [lvl, setLvl] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && lvl < 3 && el.scrollHeight > el.clientHeight + 1) setLvl(lvl + 1);
+  });
+  return <div className={`clue-detail${lvl ? ` fit-${lvl}` : ''}`} ref={ref}>{children}</div>;
 }
