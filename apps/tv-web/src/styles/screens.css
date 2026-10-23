@@ -329,13 +329,14 @@
 .em-ask-portrait { width: 110px; border-radius: 8px; }
 .emergency-ask p { display: flex; flex-direction: column; font-size: 30px; }
 .emergency-ask b { font-family: var(--f-display); font-size: 44px; color: var(--gold); }
-.hunch-chip { position: absolute; right: 120px; top: 560px; z-index: 35; width: 520px; padding: 16px 22px; border-radius: 14px; background: rgba(18, 10, 26, 0.95); box-shadow: inset 0 0 0 2px rgba(244, 199, 108, 0.5), 6px 16px 30px rgba(0, 0, 0, 0.5); animation: toastIn var(--t-base) var(--ease-spring) both; }
-.hunch-q { display: block; font-size: 28px; font-weight: 700; }
+/* one row in the gap between "Move on" and the remote hints, so it never covers the house plan or the board */
+.hunch-chip { position: absolute; left: 456px; bottom: calc(var(--sy) - 8px); z-index: 35; width: 720px; display: flex; align-items: center; gap: 18px; padding: 10px 22px; border-radius: 14px; background: rgba(18, 10, 26, 0.95); box-shadow: inset 0 0 0 2px rgba(244, 199, 108, 0.5), 6px 16px 30px rgba(0, 0, 0, 0.5); animation: toastIn var(--t-base) var(--ease-spring) both; }
+.hunch-q { flex: none; font-size: 28px; font-weight: 700; white-space: nowrap; }
 .hunch-bar.is-empty { display: none; }
-.hunch-bar { display: flex; height: 14px; margin: 10px 0; border-radius: 7px; overflow: hidden; gap: 3px; }
+.hunch-bar { flex: 1 1 60px; min-width: 60px; display: flex; height: 14px; margin: 0; border-radius: 7px; overflow: hidden; gap: 3px; }
 .hunch-bar i { display: block; transition: flex-grow var(--t-slow); }
 .h-lie { background: var(--v-out-d); } .h-true { background: var(--v-proven-d); }
-.hunch-n { font-size: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hunch-n { flex: none; margin-left: auto; white-space: nowrap; font-size: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .hunch-n b { color: var(--cream); }
 .blackout-fx { position: absolute; inset: 0; z-index: 57; display: grid; place-items: center; background: #000; animation: blackout 3.4s linear both; pointer-events: none; }
 .blackout-fx p { max-width: 1100px; text-align: center; font-family: var(--f-display); font-style: italic; font-size: 48px; color: var(--candle); opacity: 0; animation: fadeUp 600ms ease-out 1.3s both; }
@@ -392,7 +393,8 @@
 .beams i:nth-child(3) { left: 1220px; --a: 16deg; --b: -14deg; animation-duration: 8s; }
 @keyframes sweep { from { transform: rotate(var(--a)); } to { transform: rotate(var(--b)); } }
 .accuse-head { position: absolute; top: var(--sy); left: var(--sx); right: var(--sx); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.accuse-sub { font-size: 30px; color: var(--muted); max-width: 1300px; }
+/* one line, so it never runs behind the portraits */
+.accuse-sub { font-size: 28px; color: var(--muted); max-width: 1728px; }
 .accuse-lineup { position: absolute; top: 330px; left: 0; right: 0; display: flex; justify-content: center; gap: 36px; }
 .accuse-suspect { width: 236px; text-align: center; animation: fadeUp 0.8s var(--ease-out) calc(0.2s + var(--i) * 0.1s) both; }
 .accuse-suspect .portrait { border-radius: 8px; box-shadow: 0 0 0 3px #e9c779, 0 0 0 9px #3a2410, 6px 18px 30px rgba(0, 0, 0, 0.6); }
@@ -400,8 +402,8 @@
 @keyframes nervous { from { transform: translateX(-2px) rotate(-0.4deg); } to { transform: translateX(2px) rotate(0.4deg); } }
 .accuse-suspect figcaption { margin-top: 16px; display: flex; flex-direction: column; }
 .accuse-suspect b { font-size: 30px; font-weight: 700; line-height: 1.15; }
-.accuse-suspect span { font-size: 28px; color: var(--muted); font-style: italic; }
-.votes { position: absolute; left: 0; right: 0; bottom: 126px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.accuse-suspect span { font-size: 28px; line-height: 1.15; color: var(--muted); font-style: italic; }
+.votes { position: absolute; left: 0; right: 0; bottom: 104px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .envelopes { display: flex; gap: 26px; }
 .envelope svg { width: 104px; height: 72px; display: block; }
 .envelope rect { fill: rgba(247, 238, 219, 0.1); stroke: rgba(247, 238, 219, 0.4); stroke-width: 2; }
@@ -562,3 +564,7 @@
 .at-investigate .captionbar { left: auto; right: var(--sx); top: 178px; bottom: auto; transform: none; width: 552px; animation-name: fade; }
 .at-investigate .captionbar .wordcap { font-size: calc(30px * var(--ts)); }
 .at-accuse .captionbar, .at-reveal .captionbar, .at-results .captionbar { top: 40px; bottom: auto; }
+/* on the accusation the title sits top centre: narration goes in the free top-left corner, wrapping, never over the title */
+.at-accuse .captionbar { left: var(--sx); top: 28px; transform: none; max-width: 560px; animation-name: fade; }
+.at-accuse .captionbar .wordcap { font-size: calc(30px * var(--ts)); }
+.at-accuse .captionbar .cap-line { display: inline; white-space: normal; }

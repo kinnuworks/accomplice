@@ -5,7 +5,7 @@ import { FloorPlan } from '../art/FloorPlan';
 import { ArtImage, NightScene } from '../art/NightScene';
 import { Portrait } from '../art/Portrait';
 import { audio } from '../audio/audio';
-import { estimateMs, skipLine } from '../audio/director';
+import { estimateMs, fromEarlierPhase, skipLine } from '../audio/director';
 import { Hints } from '../components/Hints';
 import { Flourish } from '../components/Ornament';
 import { CaptionPanel } from '../components/Captions';
@@ -63,7 +63,11 @@ export function Briefing() {
   const last = lines.length - 1;
 
   // follow the narrator
+  const phaseAt = useTv((s) => s.phaseAt);
   const playing = now?.line.key.match(/^briefing:(\d+)$/);
+  // any other line spoken during the briefing ("Welcome, Ada, ...") takes the slide's caption slot,
+  // so there is only ever one caption on screen; lines left over from the lobby are not shown at all
+  const otherLine = now && !playing && !fromEarlierPhase(now.line, phaseAt) ? now : null;
   const playingIdx = playing ? Number(playing[1]) : -1;
   // Only ever forward: once OK has skipped ahead (or reached "Let's begin"), a narrator line that is still
   // queued must not pull the slides back, or the begin button vanishes under the remote.
@@ -175,7 +179,9 @@ export function Briefing() {
         </section>
       )}
 
-      {!ready && (
+      {otherLine ? (
+        <CaptionPanel key={otherLine.line.key} className="b-caption" line={otherLine.line} durationMs={otherLine.durationMs} />
+      ) : !ready && (
         <CaptionPanel key={`cap${at}`} className="b-caption" line={captionLine} durationMs={now && playingIdx === at ? now.durationMs : estimateMs(captionLine)} live={playingIdx === at} />
       )}
 

@@ -10,6 +10,15 @@ const NARRATOR_STALE_MS = 8000;
 const isReply = (l: Line) => !l.narrator;
 /** Briefing slides are paced by the TV itself, so they never go stale. */
 const neverStale = (l: Line) => l.key.startsWith('briefing:') || l.key.startsWith('confession:');
+/** Grace for narration that arrives just before the room state that moves to its phase. */
+const PHASE_GRACE_MS = 1500;
+/**
+ * True when the line was queued in an earlier phase than the one on screen (the lobby's "Scan the code"
+ * during the briefing, a round's answer on the accusation screen). Its caption is hidden; narration is also cut.
+ */
+export function fromEarlierPhase(l: Line, phaseAt = getState().phaseAt): boolean {
+  return !neverStale(l) && !!phaseAt && (l.queuedAt ?? phaseAt) < phaseAt - PHASE_GRACE_MS;
+}
 
 let clock: () => number = () => 0;
 let last: Line | null = null;
@@ -33,7 +42,7 @@ function takeNext(): Line | null {
   // drop stale narration (it still lands in the caption history so nothing is lost)
   for (let i = lineQueue.length - 1; i >= 0; i--) {
     const l = lineQueue[i];
-    if (l.narrator && !neverStale(l) && now - (l.queuedAt ?? now) > NARRATOR_STALE_MS) {
+    if (l.narrator && !neverStale(l) && (now - (l.queuedAt ?? now) > NARRATOR_STALE_MS || fromEarlierPhase(l))) {
       lineQueue.splice(i, 1);
       setState((s) => ({ lines: [...s.lines.slice(-40), l] }));
     }
@@ -84,6 +93,8 @@ export function startDirector(): void {
     while (sfxQueue.length) audio.play(sfxQueue.shift()!);
     // a reply never waits behind the narrator
     if (current?.narrator && !neverStale(current) && lineQueue.some(isReply)) skipLine();
+    // the phase moved on: the old phase's narration stops (its caption is already hidden)
+    else if (current?.narrator && fromEarlierPhase(current)) skipLine();
     if (!current) {
       const l = takeNext();
       if (l) void perform(l);

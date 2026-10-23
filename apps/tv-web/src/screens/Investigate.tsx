@@ -5,6 +5,7 @@ import { Avatar } from '../art/Avatar';
 import { FloorPlan, type PlanToken } from '../art/FloorPlan';
 import { Portrait, suspectColor } from '../art/Portrait';
 import { audio } from '../audio/audio';
+import { fromEarlierPhase } from '../audio/director';
 import { ClueCard, KIND_LABEL } from '../components/ClueCard';
 import { Confirm, Dialog } from '../components/Dialog';
 import { Hints } from '../components/Hints';
@@ -88,7 +89,8 @@ export function Investigate() {
   const allAsked = players.length > 0 && players.every((p) => p.questionsLeft === 0 || !p.connected);
   const nextLabel = room.round >= 3 ? 'Time to accuse' : `Move on to round ${room.round + 1}`;
 
-  const speakingLine = now && !now.line.narrator && c.suspects.some((s) => s.id === now.line.speaker) ? now : null;
+  const phaseAt = useTv((s) => s.phaseAt);
+  const speakingLine = now && !now.line.narrator && !fromEarlierPhase(now.line, phaseAt) && c.suspects.some((s) => s.id === now.line.speaker) ? now : null;
   const speakingId = speakingLine?.line.speaker ?? room.speaking;
   const showVerdict = !!verdict && verdict.at > dismissedAt;
 
@@ -279,7 +281,8 @@ export function Investigate() {
         </button>
       </section>
 
-      {spotSuspect && <Spotlight now={speakingLine} suspectId={spotSuspect} askerId={asking?.playerId} c={c} players={players} startled={objection} />}
+      {/* the emergency vote panel covers the board: no answer shows through it */}
+      {spotSuspect && room.emergency?.stage !== 'vote' && <Spotlight now={speakingLine} suspectId={spotSuspect} askerId={asking?.playerId} c={c} players={players} startled={objection} />}
       {objection && <div className="objection" role="status" aria-label={event?.text || 'Objection!'}><span>Objection!</span>{event?.text && <small>{event.text}</small>}</div>}
       {hunch && (
         <div className="hunch-chip" role="status" aria-label={`Lying or truthful? ${hunch.lying} say lying, ${hunch.truth} say truthful`}>

@@ -26,6 +26,8 @@ export interface TvState {
   proposal: Proposal | null;
   event: TvEvent | null;
   hunch: { utteranceId: string; lying: number; truth: number; at: number } | null;
+  /** When the room last moved to a new phase (Date.now()). Lines queued before it belong to the old phase. */
+  phaseAt: number;
 }
 
 type Listener = () => void;
@@ -33,7 +35,7 @@ type EventListener = (msg: ServerToClient) => void;
 
 let state: TvState = {
   stage: 'title', connected: false, everConnected: false, room: null, code: null, joinUrl: null,
-  verdict: null, now: null, lines: [], toasts: [], error: null, proposal: null, event: null, hunch: null,
+  verdict: null, now: null, lines: [], toasts: [], error: null, proposal: null, event: null, hunch: null, phaseAt: 0,
 };
 const listeners = new Set<Listener>();
 const eventListeners = new Set<EventListener>();
@@ -116,7 +118,10 @@ export function receive(msg: ServerToClient): void {
   switch (msg.t) {
     case 'room:state': {
       const room = tidyRoom(msg.state as TvRoomState);
-      setState((s) => ({ room, code: room.code, stage: 'game', verdict: room.phase === s.room?.phase ? s.verdict : null }));
+      setState((s) => ({
+        room, code: room.code, stage: 'game', verdict: room.phase === s.room?.phase ? s.verdict : null,
+        phaseAt: s.room && room.phase !== s.room.phase ? Date.now() : s.phaseAt,
+      }));
       break;
     }
     case 'room:created':
@@ -166,7 +171,7 @@ export function receive(msg: ServerToClient): void {
 export function resetToTitle(): void {
   setLink(null);
   lineQueue.length = 0;
-  setState({ stage: 'title', room: null, code: null, joinUrl: null, verdict: null, now: null, lines: [], connected: false, proposal: null, event: null, hunch: null });
+  setState({ stage: 'title', room: null, code: null, joinUrl: null, verdict: null, now: null, lines: [], connected: false, proposal: null, event: null, hunch: null, phaseAt: 0 });
 }
 
 /** Clue text for a board id, from whichever field the server provides. */

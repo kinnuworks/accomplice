@@ -110,7 +110,9 @@ export function App() {
         <div className="lightfx" aria-hidden="true" />
         <div className="screen-host" key={where}>{screen}</div>
         <StageFx />
-        <Captions suppressSuspects={where === 'investigate' || where === 'tutorial' || where === 'reveal'} />
+        {/* suspects speak inside their own screen's panel; on the accusation, reveal and results screens a stray answer never draws over a title */}
+        {/* the briefing captions every line in its own slot */}
+        {where !== 'briefing' && <Captions suppressSuspects={where === 'investigate' || where === 'tutorial' || where === 'accuse' || where === 'reveal' || where === 'results'} />}
         {!lobbyToasts && (
           <div className="toasts" aria-live="polite">
             {toasts.map((t) => <div className="toast" key={t.id}>{t.icon && <span className="toast-icon" aria-hidden="true">{t.icon}</span>}{t.text}</div>)}
