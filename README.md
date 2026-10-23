@@ -1,5 +1,7 @@
 # Accomplice
 
+**Demo video:** https://youtu.be/TiMqMkAqtYM · **Play live:** http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/tv/ · **Fire TV package:** [v1.0.0 release](https://github.com/kinnuworks/accomplice/releases/tag/v1.0.0)
+
 A murder-mystery party game for Fire TV. Up to six people question AI suspects out loud from their phones, and one of the people on the couch is secretly helping the killer.
 
 - **TV (Vega OS):** the case, the suspects, the evidence board and the reveal. D-pad only.

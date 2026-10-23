@@ -1,5 +1,7 @@
 # Accomplice: Devpost text (paste-ready)
 
+Demo video: https://youtu.be/TiMqMkAqtYM
+
 ## Tagline (under 200 characters)
 
 A murder-mystery party game for Fire TV where one of your friends is secretly helping the killer. Question AI suspects out loud from your phone and catch them both.
