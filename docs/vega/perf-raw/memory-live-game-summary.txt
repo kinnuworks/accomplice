@@ -1,0 +1,13 @@
+# Live game TFFW on the Vega Virtual Device, 23 Oct 2026 (local times). Method: same as apps/vega/scripts/measure-memory.sh sample(): vega exec perf activity-monitor, median of 'Memory Application'.
+12:34:59 start pretest-title
+12:35:16 end pretest-title
+12:39:32 start investigate-r1
+12:40:57 end investigate-r1
+12:44:05 start investigate-r2
+12:44:48 end investigate-r2
+12:51:25 start reveal
+12:52:07 end reveal
+pretest-title: n=10 median=248.0 MiB min=248.0 max=248.0
+investigate-r1: no samples
+investigate-r2: n=7 median=287.4 MiB min=287.4 max=287.4
+reveal: n=37 median=294.8 MiB min=292.9 max=294.9

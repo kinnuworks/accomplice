@@ -118,11 +118,88 @@ Measured on 23 October 2026 with the aarch64 release package on the Vega Virtual
 - Title screen: 248.6, 251.0 and 247.5 MiB
 - Lobby: 260.1, 261.3 and 259.1 MiB
 
-The tool does not say exactly what "Memory Application" counts. As a cross-check, the system's resource manager logs PSS for each process (`resmgr-pss-logger` lines, saved in `docs/vega/perf-raw/memory-system-pss-log.txt`). In one run, the app process was at 156.3 MB PSS on the title screen and 166.8 MB in the lobby. The separate WebView renderer service (`com.amazon.webview.renderer_service`) was at 109.2 MB PSS. Together the two processes come to about 259 MiB, close to the activity monitor figure, so that figure most likely includes the renderer. The lobby is the furthest point you can reach with the remote alone. Later game screens need at least three phones to join, so memory during actual play was not measured.
+The tool does not say exactly what "Memory Application" counts. As a cross-check, the system's resource manager logs PSS for each process (`resmgr-pss-logger` lines, saved in `docs/vega/perf-raw/memory-system-pss-log.txt`). In one run, the app process was at 156.3 MB PSS on the title screen and 166.8 MB in the lobby. The separate WebView renderer service (`com.amazon.webview.renderer_service`) was at 109.2 MB PSS. Together the two processes come to about 259 MiB, close to the activity monitor figure, so that figure most likely includes the renderer. The lobby is the furthest point you can reach with the remote alone. Memory during actual play was measured later in a live game with four scripted phones; see "A live game on the Vega Virtual Device" below.
 
 #### Frame rate
 
-There is no UI-fluidity number. The KPI Visualizer's `ui-fluidity` test and its memory tests (`foreground-memory`, `memory`) both need an Appium server, which is not part of the SDK install. Run without it, the tool stops with "Appium server is not found in the platform". The cold-start trace does log how many frames the compositor presented for the app's surface during each roughly 12 s launch window. That gave 61.9, 61.5, 55.3, 61.4 and 61.1 fps, a median of 61.4. The tool marks these values as uncapped, and they cover launch and the title screen's idle animation, not gameplay. They show that the title screen renders at the display rate on the virtual device. They are not a UI fluidity score.
+There was no UI-fluidity number at first (one was added later, see "UI fluidity" under "A live game on the Vega Virtual Device"). The KPI Visualizer's `ui-fluidity` test and its memory tests (`foreground-memory`, `memory`) both need an Appium server, which is not part of the SDK install. Run without it, the tool stops with "Appium server is not found in the platform". The cold-start trace does log how many frames the compositor presented for the app's surface during each roughly 12 s launch window. That gave 61.9, 61.5, 55.3, 61.4 and 61.1 fps, a median of 61.4. The tool marks these values as uncapped, and they cover launch and the title screen's idle animation, not gameplay. They show that the title screen renders at the display rate on the virtual device. They are not a UI fluidity score.
+
+## A live game on the Vega Virtual Device
+
+We have no Fire TV hardware. As the closest substitute, we recorded the release package (`accomplice_aarch64_release.vpkg`) on the Vega Virtual Device playing one whole game against the live server in AWS ap-south-1, with four phones joining. Recorded on 23 October 2026 between 12:35 and 12:52 local time (IST), room `TFFW`, classic case "A Rather Final Dinner at Ashby Hall".
+
+- Recording: `docs/vega/vvd-live-game.mov` (2320x1136, 15 min 12 s, 72 MB) and `docs/vega/vvd-live-game.mp4` (1280 wide, 14.5 MB). Both show the virtual device's whole window, including its on-screen remote. There is no sound: macOS window capture records picture only, and the voices played through the laptop speakers.
+- Key frames: `docs/vega/frames/01-title.png` to `07-reveal-accomplice.png`, plus `08-bug-stale-lobby-caption.png`.
+
+### How it was run
+
+- **TV:** the Vega app, driven only by remote key presses from the device shell (`inputd-cli button_press KEY_ENTER`, `KEY_DOWN`, `KEY_PLAYPAUSE`).
+- **Room code:** read from the QR code on the TV. A window screenshot was decoded with macOS Vision's barcode detector, which returned `https://<joinBase>/p?room=TFFW`. The code was then confirmed with `GET /api/rooms/TFFW` (phase `lobby`, no players).
+- **Phones:** four headless Chromium phones (Playwright, separate contexts, iPhone 15 and Pixel 7 profiles) joined through the HTTPS `joinBase` from `/api/health`, at `<joinBase>/p/?room=TFFW`. They used the same join, typed-question and vote steps as the e2e harness (`e2e/src/harness.mjs`, `e2e/src/game.mjs`). Questions were typed with the phone's "Type instead" fallback, not spoken. Every answer came from the live model, and every voice was live Polly.
+- **Capture:** the first 12 minutes were recorded at 30 fps with a small ScreenCaptureKit window recorder. That stream was then cut off by macOS ("The user stopped the stream"). The last 3 minutes are built from window screenshots (`screencapture -l <window id>`), taken about 2 per second and placed on their real timestamps, so that part looks choppier. About 1 min 45 s between the two parts was not captured: the free question to Ned and the start of round 3. After 12:52:14, window capture returned only black frames, because the window was no longer visible on the Mac. The app was still running on the device (`vega device running-apps`), but the final results screen was not recorded.
+
+### Timeline of the recording
+
+| Time | What is on the TV |
+|---|---|
+| 0:00 | Title screen. OK on "Host a game". |
+| 0:10 | Lobby with QR code and room code TFFW. Four phones join (Ada, Bram, Cleo, Dev) by about 0:58. |
+| 1:00 | OK on "Open the case". Briefing: title card, victim, the five suspects, then "One of them did it". |
+| 2:00 | Practice round. Ada asks Hobbs "Who was the last person to see Sir Hector alive?". His answer is captioned: "If you insist." ... "nothing but the rain." |
+| 2:20 | Round 1 board: clue cards, floor plan, suspect row. Bram asks Ned and Cleo asks Lady Imogen (typed on the phones). |
+| 6:15 | The TV starts showing the round-1 answers, more than two minutes after the server had them (see problem 1). The captions run word by word ("Let me think." ... "with me."). |
+| 7:00 | The server's round clock moves the room to round 2. The TV stays frozen on the end of Ned's answer ("with me.") for about 2.5 minutes. |
+| 9:40 | After a Play/Pause press on the remote, Lady Imogen's answer plays with captions, then freezes on its last words again. |
+| 10:50 | Round 3 starts, and an "Emergency meeting" vote appears on the TV. |
+| 11:58 | The 30 fps part ends. About 1 min 45 s is not captured. The rest comes from screenshots. |
+| 12:00 to 13:00 | Lady Imogen's answer, frozen on "pleasure.". |
+| 13:10 | Accusation screen, "Who did it?". All four phones vote. |
+| 13:40 to 15:12 | Reveal: "How it was done" in 7 steps, "It was Colonel Rupert Hargreaves", GUILTY, the confession, and "Cleo was the Accomplice. GOT AWAY". |
+
+### Measurements during the game
+
+Memory was measured the same way as `apps/vega/scripts/measure-memory.sh`: `vega exec perf activity-monitor --app-name com.accomplice.tv.main`, recorded while the game was running, using the median of the "Memory Application" column. This was one game, so each row is a single window of samples, not a median across runs.
+
+| Moment | Memory Application (median) | Samples | CPU Application % (median) |
+|---|---|---|---|
+| Title screen, before hosting (pre-check) | 248.0 MiB | 10 | n/a |
+| Investigate, round 2 (answer caption on screen, music bed playing) | 287.4 MiB | 7 | 81% (63 to 100) |
+| Reveal | 294.8 MiB (292.9 to 294.9) | 37 | 47% (20 to 133) |
+
+Raw data: `docs/vega/perf-raw/memory-live-game-*.txt`. A first window during round 1 returned no samples. A tool started in the background with `nohup` printed nothing, so it was run again in the foreground. Memory during the game was about 27 to 35 MiB above the lobby figure (260 MiB) and stayed flat during the reveal. CPU on the emulator says nothing reliable about a stick's CPU.
+
+### UI fluidity (KPI Visualizer, with Appium)
+
+The KPI Visualizer's `ui-fluidity` test needs Appium plus Amazon's Appium driver for Vega. Neither comes with the SDK. Both were installed locally, outside the repo: `appium@2.19.0` (the driver needs Appium 2) and `@amazon-devices/appium-kepler-driver@3.33.1` (`appium driver install --source=npm @amazon-devices/appium-kepler-driver`, with `APPIUM_HOME` pointing at a scratch folder). With those on `PATH`, the test ran:
+
+```sh
+vega exec perf kpi-visualizer --app-name com.accomplice.tv.main --kpi ui-fluidity \
+  --test-scenario docs/vega/perf-raw/ui-fluidity-test-scenario.py --iterations 3 \
+  --monitor-processes webview.renderer_service
+```
+
+The scenario (`docs/vega/perf-raw/ui-fluidity-test-scenario.py`) waits 10 s for the title screen, then sends 16 D-pad presses (right, right, left, left, four times, 0.7 s apart) through the driver's `injectInputKeyEvent`. Each press moves the focus ring between "Host a game", "How to play" and "Settings". The test does not cover in-game screens, which need phones in the room. Results (23 October 2026, aarch64 release package):
+
+| Metric | Value | Samples |
+|---|---|---|
+| Fluidity % | 78.9 (78.8 to 78.9) | 2 iterations (the tool found no app surface in the first of 3) |
+| Granular fluidity % | 78.7 mean (66.7 to 96.4) | 86 windows, marked statistically sound by the tool |
+| 3+ consecutive dropped frames | 0.5 mean (0 to 1) | 2 iterations |
+| 5+ consecutive dropped frames | 0 | 2 iterations |
+| GWSI average FPS (side output) | 75.7 and 76.9 | 2 iterations, about 960 frames in 12.5 s each |
+| Key-press and input-to-frame latency | not reported | the tool's trace had no input events, so these came back null and the run ends with "VALUE VALIDATION FAILED" for these four values only |
+
+The tool itself warns that numbers from a virtual device are not real-device numbers. A fluidity score near 79% while the frame rate is above 60 fps probably reflects uneven frame pacing on the emulator, not dropped frames on a stick. Report: `docs/vega/perf-raw/ui-fluidity-kpi-report-2026-10-23_13-04-33.json`.
+
+### Problems found on the device
+
+1. **Voice lines never finish on the Vega WebView, so the TV falls behind the game (serious).** On the device, a suspect's or narrator's voice line plays to its last word, but the caption then freezes on that word ("with me.", "pleasure.") and the next line never starts. In this run, Ned's round-1 answer stayed on screen through the start of round 2, and answers showed up minutes after the server had them. One answer (Pippa, asked in round 2) only appeared on the accusation screen. In `apps/tv-web/src/audio/audio.ts`, `speak()` resolves only on the audio element's `ended` or `error` event. `perform()` in `apps/tv-web/src/audio/director.ts` waits on that with no time limit. The Vega WebView apparently does not fire `ended` (or stalls just before it), so the line queue blocks for good. Pressing Play/Pause on the remote sometimes freed it. The same block happens invisibly when the screen changes: Hobbs's practice line was stuck after the tutorial screen had gone, which delayed round 1's answers. Suggested fix: a watchdog in `perform()` that ends the line after `max(estimateMs(line), audio.duration) + ~1.5 s`, or when `currentTime` stops advancing near the end. This was not seen in desktop browsers.
+2. **A stale lobby caption sits on top of the briefing** (`frames/08-bug-stale-lobby-caption.png`). "NARRATOR: Scan the code or enter room code TFFW" stays on screen through the briefing slides and overlaps the briefing's own narrator caption. Same cause as problem 1: the lobby line never ended.
+3. **A caption overlaps the accusation title** (`frames/06-vote.png`). Pippa's late answer ("PIPPA QUILL / Oh, sweetie.") is drawn on top of "THE MOMENT OF TRUTH / Who did it?". This only happens because of problem 1, but suspect captions should not show on the accusation screen.
+4. **The stuck answer shows through the Emergency meeting panel.** The frozen Lady Imogen question and caption are still visible faintly behind the semi-transparent panel.
+5. **The "Lying or truthful?" box covers part of the floor plan** on the round 1 board (`The house` panel): the Great Hall, Dining Room and Pantry labels are hidden behind it.
+6. **The vote counter on the TV stayed at "0 of 4 votes sealed"** in the frames captured before the reveal began. The phones locked in their votes at 07:21:04 to 07:21:05 UTC and the server went straight to the reveal, so this may only be timing.
+7. **The rounds moved on without the remote.** Rounds 1 and 2 ended on the server's round clock while the TV was still playing old answers. This is server behaviour, not a device bug. Combined with problem 1, though, the table never got to hear answers before the round ended.
 
 ## Screenshots
 

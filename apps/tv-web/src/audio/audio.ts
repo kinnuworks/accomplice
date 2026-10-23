@@ -175,7 +175,17 @@ class AudioManager {
     this.duck(true);
     let settled = false;
     const done = new Promise<boolean>((resolve) => {
-      const fin = (ok: boolean) => { if (settled) return; settled = true; this.duck(false); resolve(ok); };
+      // The Vega WebView does not always fire `ended`, which used to stall the whole voice queue.
+      // A watchdog ends the line when playback reaches the end, or when it stops advancing while not paused.
+      let lastT = -1; let stillMs = 0;
+      const watch = setInterval(() => {
+        if (a.paused && a.currentTime > 0) { stillMs = 0; return; } // paused from the remote: wait
+        const d = a.duration;
+        if (isFinite(d) && d > 0 && a.currentTime >= d - 0.12) return fin(true);
+        if (a.currentTime === lastT) stillMs += 250; else { stillMs = 0; lastT = a.currentTime; }
+        if (stillMs >= (a.currentTime > 0 ? 1500 : 4000)) fin(a.currentTime > 0);
+      }, 250);
+      const fin = (ok: boolean) => { if (settled) return; settled = true; clearInterval(watch); this.duck(false); resolve(ok); };
       a.onended = () => fin(true);
       a.onerror = () => fin(false);
       a._fin = fin;

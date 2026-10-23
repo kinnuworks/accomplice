@@ -6,3 +6,4 @@ dist
 audio-cache
 apps/vega/build
 apps/vega/node_modules
+docs/vega/*.mov
