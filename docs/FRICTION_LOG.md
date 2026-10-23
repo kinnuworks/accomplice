@@ -95,6 +95,26 @@ Building a Fire TV party game on Vega OS was fast once the SDK was installed: a 
 
 **Recommendation:** Document the virtual device's networking and add a `vega device reverse` style command.
 
+### The Vega WebView blocks plain HTTP, and the setting that allows it isn't documented
+
+**Severity:** Medium
+
+**Expected:** A WebView pointed at an `http://` URL either loads it or logs why it refused.
+
+**Actual:** The app showed our offline page, while `curl` from the device shell reached the same URL with a 200. We found the fix, a `[network-traffic-policy.cleartext]` section with `allowed-domains` in `manifest.toml`, by reading key names inside the device's package-manager library. We couldn't find it in the public docs.
+
+**Recommendation:** Document the network traffic policy in the manifest reference and log a clear message when the WebView blocks cleartext traffic.
+
+### `vega build -b Release` produces a package with no JavaScript
+
+**Severity:** Medium
+
+**Expected:** A release build that runs.
+
+**Actual:** `vega build -b Release` skipped the JavaScript bundle and produced a 5 KB package that couldn't start. `npm run build:release` from the template works.
+
+**Recommendation:** Have the CLI build the bundle too, or fail with a message pointing at the npm script.
+
 ### Bedrock is blocked on a new AWS India (AISPL) account with no explanation
 
 **Severity:** Critical

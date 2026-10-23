@@ -34,7 +34,7 @@ Also: a Cozy mode for kids (a stolen cake, no murder), questions and captions in
 
 **Voices and captions.** Amazon Polly neural voices give each suspect a distinct voice from the Mumbai region, and Polly speech marks light up captions word by word. Amazon Transcribe streaming turns the phone's hold-to-talk into text in about 0.63 s. Amazon Translate handles Hindi.
 
-**TV.** A 10-foot React stage inside a Vega OS app, D-pad only, tested at 1080p and 720p (39 screens each, no clipped text). [Vega Virtual Device numbers: cold start, memory, frame rate.]
+**TV.** A 10-foot React stage inside a Vega OS app, D-pad only, tested at 1080p and 720p (39 screens each, no clipped text). On the Vega Virtual Device (release build, median of 5 runs): first frame in 749 ms, the live stage fully drawn in 1,452 ms including the network trip, and about 249 MiB of memory at the title screen including the WebView renderer. A release package for armv7, aarch64 and x86_64 and a judge run script are in the repo ([docs/VEGA.md](VEGA.md)).
 
 **Phones.** A web page with large targets, screen-reader labels on everything, and haptic cues for hold-to-talk. 31 screens with zero axe accessibility violations.
 
