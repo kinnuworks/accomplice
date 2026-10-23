@@ -6,6 +6,8 @@ Items in [brackets] still need a real number or link before submitting. Don't fi
 
 Question AI suspects out loud from your phone and find the killer, while one person on your couch is secretly helping them. Every case is solver-checked so it can be won.
 
+**[Demo video link, top of the page.]** [One playtest number and one player quote.]
+
 ## Inspiration
 
 Mystery party games are great once a year, because someone has to buy a box, read the rules and host. AI mystery games fix the hosting, but the ones we tried had two problems: the AI sometimes contradicts itself, so the case can't be solved, and playing against a computer gets quiet fast. We wanted the AI to do the hosting and the acting, and the people in the room to supply the tension.
@@ -20,11 +22,9 @@ Then you play one loop, three times: **hold your phone, ask a suspect anything, 
 
 At the end the room names the culprit and votes on the accomplice. The reveal walks through the clues that prove the answer, the culprit confesses, and everyone gets a newspaper front page with their names on it.
 
-Other ways in:
-- **Alexa+:** the same game as an MCP add-on. Ask Alexa to start a case, question suspects by voice, and see the board on an Echo Show. "Send it to the TV" moves the game to the living room.
-- **Cozy mode:** a stolen cake instead of a murder, for kids.
-- **Hindi:** any player can ask in Hindi and read captions in Hindi while the rest play in English.
-- **Blind and low-vision players:** everything on the TV is also spoken, the phone works with VoiceOver and TalkBack, and the board can be read aloud. [Result of the playtest with a blind player, in their words.]
+**Alexa+, voice only.** The same case plays through an Alexa+ MCP add-on with no screen at all: "Alexa, start a mystery", "ask the cook where she was at nine", "I think it was the butler". Alexa confirms the accusation before it counts. An Echo Show gets an evidence card, and "send it to the TV" moves the game to the living room.
+
+Also: a Cozy mode for kids (a stolen cake, no murder), questions and captions in Hindi, and a phone that works fully with VoiceOver and TalkBack. [Blind-player playtest result, only if it happened.]
 
 ## How we built it
 
@@ -38,7 +38,7 @@ Other ways in:
 
 **Phones.** A web page with large targets, screen-reader labels on everything, and haptic cues for hold-to-talk. 31 screens with zero axe accessibility violations.
 
-**Alexa+.** An MCP server on spec 2025-11-25 over Streamable HTTP: case generation runs as a task, the accusation uses elicitation to confirm, and the evidence board is an MCP Apps `ui://` card. Game state is keyed by household so the conversation can pick up later. A house host built with Strands Agents connects to the same MCP tools and follows the add-on's SKILL.md, so it can answer questions like "remind me what the cook said" and question a suspect for you. It never accuses without a spoken yes. Simple commands skip the agent and answer instantly; agent answers start speaking in 0.9 to 2.9 s.
+**Alexa+.** An MCP server on spec 2025-11-25 over Streamable HTTP: case generation runs as a task, the accusation uses elicitation to confirm, and the evidence board is an MCP Apps `ui://` card. Game state is keyed by household so the conversation can pick up later. It isn't tied to our own client: the official MCP Inspector CLI lists all 11 tools on the live server and starts a case through `tools/call`. Live tool calls take about 1 s (`start_case` 0.96 s, `question_suspect` 1.13 s, median). An optional house host built with Strands Agents connects to the same MCP tools and follows the add-on's SKILL.md, so it can answer questions like "remind me what the cook said" and question a suspect for you. It never accuses without a spoken yes. Simple commands skip the agent and answer instantly; agent answers start speaking in 0.9 to 2.9 s. Its model is one setting; Bedrock would be the default if our account could use it.
 
 **AWS.** One CDK stack: ECS Fargate (ARM) behind a load balancer, DynamoDB for room snapshots (a game survives a server restart) and detective records, S3 for the voice cache, Secrets Manager, a CloudWatch game dashboard and a $150 budget cap. Live at http://Accomp-Alb16-mcZdJ1MHVPFR-1726733199.ap-south-1.elb.amazonaws.com/tv/ (phones join over HTTPS through the QR code).
 
