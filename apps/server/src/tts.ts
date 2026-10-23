@@ -310,15 +310,37 @@ export async function narrate(text: string, tier: VoiceTier = 'narrator', opts: 
 // Hard spend cap: before any uncached ElevenLabs line, check the account's real remaining characters and switch to
 // Polly once fewer than ELEVENLABS_MIN_REMAINING (default 4000) would be left. Cached lines always play.
 let elQuota: { remaining: number; at: number } | null = null;
+let elQuotaInflight: Promise<number> | null = null;
 async function elevenRemaining(apiKey: string): Promise<number> {
   if (elQuota && Date.now() - elQuota.at < 60_000) return elQuota.remaining;
-  const res = await fetch('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': apiKey } });
-  if (!res.ok) throw new Error(`quota HTTP ${res.status}`);
-  const j: any = await res.json();
-  const remaining = Number(j.character_limit) - Number(j.character_count);
-  if (!Number.isFinite(remaining)) throw new Error('quota unknown');
-  elQuota = { remaining, at: Date.now() };
-  return remaining;
+  // A new case narrates many lines at once: share one balance check between them.
+  elQuotaInflight ??= (async () => {
+    try {
+      for (let attempt = 0; ; attempt++) {
+        const res = await fetch('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': apiKey } });
+        if (res.status === 429 && attempt < 2) { await new Promise((r) => setTimeout(r, 800 * (attempt + 1))); continue; }
+        if (!res.ok) {
+          // Keep using a recent known balance (spend is tracked locally) rather than dropping to Polly.
+          if (elQuota && Date.now() - elQuota.at < 15 * 60_000) return elQuota.remaining;
+          throw new Error(`quota HTTP ${res.status}`);
+        }
+        const j: any = await res.json();
+        const remaining = Number(j.character_limit) - Number(j.character_count);
+        if (!Number.isFinite(remaining)) throw new Error('quota unknown');
+        elQuota = { remaining, at: Date.now() };
+        return remaining;
+      }
+    } finally { elQuotaInflight = null; }
+  })();
+  return elQuotaInflight;
+}
+
+// The Starter plan allows few concurrent requests; queue ElevenLabs calls two at a time.
+let elActive = 0; const elWaiting: (() => void)[] = [];
+async function elSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (elActive >= 2) await new Promise<void>((r) => elWaiting.push(r));
+  elActive++;
+  try { return await fn(); } finally { elActive--; elWaiting.shift()?.(); }
 }
 
 async function elevenSpeak(text: string, voice: string, apiKey: string): Promise<Speech> {
@@ -342,11 +364,11 @@ async function elevenSpeak(text: string, voice: string, apiKey: string): Promise
   const floor = Number(process.env.ELEVENLABS_MIN_REMAINING ?? 4000);
   const left = await elevenRemaining(apiKey);
   if (left - clean.length < floor) throw new Error(`character budget reached (${left} left, floor ${floor})`);
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}/with-timestamps?output_format=mp3_44100_128`, {
+  const res = await elSlot(() => fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}/with-timestamps?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'xi-api-key': apiKey, 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify({ text: clean, model_id: model }),
-  });
+  }));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const j: any = await res.json();
   const audio = Buffer.from(String(j.audio_base64 ?? ''), 'base64');
